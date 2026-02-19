@@ -33,13 +33,13 @@ def init_db():
     conn.commit()
     conn.close()
 
-def add_bottle(winery, region, appellation, varietal, vintage, quantity, drink_from, drink_by, your_notes, your_rating, expert_notes):
+def add_bottle(winery, wine_name, region, appellation, varietal, vintage, quantity, drink_from, drink_by, your_notes, your_rating, expert_notes):
     conn = sqlite3.connect("cellar.db")
     c = conn.cursor()
     c.execute('''
-        INSERT INTO bottles (winery, region, appellation, varietal, vintage, quantity, drink_from, drink_by, your_notes, your_rating, expert_notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (winery, region, appellation, varietal, vintage, quantity, drink_from, drink_by, your_notes, your_rating, expert_notes))
+        INSERT INTO bottles (winery, wine_name, region, appellation, varietal, vintage, quantity, drink_from, drink_by, your_notes, your_rating, expert_notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (winery, wine_name, region, appellation, varietal, vintage, quantity, drink_from, drink_by, your_notes, your_rating, expert_notes))
     conn.commit()
     conn.close()
 
@@ -49,16 +49,16 @@ def get_bottles():
     conn.close()
     return df
 
-def update_bottle(id, winery, region, appellation, varietal, vintage, quantity, drink_from, drink_by, your_notes, your_rating, expert_notes):
+def update_bottle(id, winery, wine_name, region, appellation, varietal, vintage, quantity, drink_from, drink_by, your_notes, your_rating, expert_notes):
     conn = sqlite3.connect("cellar.db")
     c = conn.cursor()
     c.execute('''
         UPDATE bottles SET
-            winery=?, region=?, appellation=?, varietal=?, vintage=?,
+            winery=?, wine_name=?, region=?, appellation=?, varietal=?, vintage=?,
             quantity=?, drink_from=?, drink_by=?, your_notes=?,
             your_rating=?, expert_notes=?
         WHERE id=?
-    ''', (winery, region, appellation, varietal, vintage, quantity, drink_from, drink_by, your_notes, your_rating, expert_notes, id))
+    ''', (winery, wine_name, region, appellation, varietal, vintage, quantity, drink_from, drink_by, your_notes, your_rating, expert_notes, id))
     conn.commit()
     conn.close()
 
@@ -194,6 +194,7 @@ if page == "My Cellar":
         # ── Clean table ──────────────────────────────────────────
         display = filtered.drop(columns=["id"]).rename(columns={
             "winery": "Winery",
+            "wine_name": "Wine Name",
             "region": "Region",
             "appellation": "Appellation",
             "varietal": "Varietal",
@@ -228,6 +229,7 @@ elif page == "Add a Bottle":
     st.title("Add a Bottle")
 
     winery = st.text_input("Winery")
+    wine_name = st.text_input("Wine Name (e.g. Province, Special Selection, Reserve)")
     region = st.text_input("Region (e.g. Burgundy, Napa Valley)")
     appellation = st.text_input("Appellation (e.g. Pommard, Stags Leap District)")
     varietal = st.text_input("Varietal (e.g. Pinot Noir, Cabernet Sauvignon)")
@@ -235,7 +237,6 @@ elif page == "Add a Bottle":
     vintage = None if no_vintage else st.number_input("Vintage", min_value=1900, max_value=2100, value=2020)
     quantity = st.number_input("Bottles in Cellar", min_value=1, value=1)
 
-    # AI Lookup
     if st.button("🔍 Lookup Drink Window & Tasting Notes"):
         if winery and varietal and region:
             with st.spinner("Looking up wine info..."):
@@ -250,7 +251,7 @@ elif page == "Add a Bottle":
                         st.session_state["expert_notes"] = line.replace("EXPERT_NOTES:", "").strip()
             st.success("Got it! Review the info below and adjust if needed.")
         else:
-            st.warning("Please fill in Winery, Varietal, Region, and Vintage first.")
+            st.warning("Please fill in Winery, Varietal, and Region first.")
 
     drink_from = st.number_input("Drink From (year)", min_value=1900, max_value=2100, value=st.session_state.get("drink_from", 2024))
     drink_by = st.number_input("Drink By (year)", min_value=1900, max_value=2100, value=st.session_state.get("drink_by", 2030))
@@ -260,12 +261,11 @@ elif page == "Add a Bottle":
     expert_notes = st.text_area("Expert Tasting Notes", value=st.session_state.get("expert_notes", ""))
 
     if st.button("Add to Cellar"):
-        add_bottle(winery, region, appellation, varietal, vintage, quantity, drink_from, drink_by, your_notes, your_rating, expert_notes)
-        # Clear session state after adding
+        add_bottle(winery, wine_name, region, appellation, varietal, vintage, quantity, drink_from, drink_by, your_notes, your_rating, expert_notes)
         for key in ["drink_from", "drink_by", "expert_notes"]:
             if key in st.session_state:
                 del st.session_state[key]
-        st.success(f"Added {vintage} {winery} to your cellar!")
+        st.success(f"Added {winery} {wine_name} to your cellar!")
 
 # --- PAGE: Edit a Bottle ---
 elif page == "Edit a Bottle":
@@ -274,14 +274,22 @@ elif page == "Edit a Bottle":
     if df.empty:
         st.info("No bottles in your cellar yet.")
     else:
-        bottle_options = {f"{row['vintage']} {row['winery']} (ID: {row['id']})": row['id'] for _, row in df.iterrows()}
+        def format_bottle_label(row):
+            vintage_str = "NV" if pd.isna(row['vintage']) else str(int(row['vintage']))
+            wine_name_str = f" {row['wine_name']}" if row['wine_name'] and not pd.isna(row['wine_name']) else ""
+            appellation_str = f" {row['appellation']}" if row['appellation'] and not pd.isna(row['appellation']) else ""
+            varietal_str = f" {row['varietal']}" if row['varietal'] and not pd.isna(row['varietal']) else ""
+            return f"{vintage_str} {row['winery']}{wine_name_str}{appellation_str}{varietal_str}"
+
+        bottle_options = {format_bottle_label(row): row['id'] for _, row in df.iterrows()}
         selected = st.selectbox("Select a bottle to edit", list(bottle_options.keys()))
         bottle_id = bottle_options[selected]
         bottle = df[df["id"] == bottle_id].iloc[0]
 
         winery = st.text_input("Winery", value=bottle["winery"])
+        wine_name = st.text_input("Wine Name", value=str(bottle["wine_name"] or ""))
         region = st.text_input("Region", value=bottle["region"])
-        appellation = st.text_input("Appellation", value=bottle["appellation"])
+        appellation = st.text_input("Appellation", value=str(bottle["appellation"] or ""))
         varietal = st.text_input("Varietal", value=bottle["varietal"])
         no_vintage = st.checkbox("Non-Vintage (NV)", value=bottle["vintage"] is None or pd.isna(bottle["vintage"]))
         vintage = None if no_vintage else st.number_input("Vintage", min_value=1900, max_value=2100, value=int(bottle["vintage"]) if not pd.isna(bottle["vintage"]) else 2020)
@@ -294,7 +302,7 @@ elif page == "Edit a Bottle":
         expert_notes = st.text_area("Expert Tasting Notes", value=str(bottle["expert_notes"] or ""))
 
         if st.button("Save Changes"):
-            update_bottle(bottle_id, winery, region, appellation, varietal, vintage, quantity, drink_from, drink_by, your_notes, your_rating, expert_notes)
+            update_bottle(bottle_id, winery, wine_name, region, appellation, varietal, vintage, quantity, drink_from, drink_by, your_notes, your_rating, expert_notes)
             st.success("Bottle updated!")
 
         if st.button("🗑️ Delete Bottle"):
