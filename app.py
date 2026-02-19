@@ -113,7 +113,10 @@ Suggest 5 specific wines they might enjoy that aren't already in their list. Inc
     )
     return message.content[0].text
 
-def lookup_wine_info(winery, varietal, region, vintage):
+def lookup_wine_info(winery, varietal, region, vintage, appellation=None):
+    vintage_str = "Non-Vintage (NV)" if not vintage else str(int(vintage))
+    appellation_str = appellation if appellation else "Not specified"
+    
     message = client.messages.create(
         model="claude-opus-4-6",
         max_tokens=1024,
@@ -123,11 +126,12 @@ def lookup_wine_info(winery, varietal, region, vintage):
 Winery: {winery}
 Varietal: {varietal}
 Region: {region}
-Vintage: {vintage}
+Appellation: {appellation_str}
+Vintage: {vintage_str}
 
 Please provide:
-1. DRINK_FROM: The year this wine will start to peak (just the 4-digit year)
-2. DRINK_BY: The year this wine should be consumed by (just the 4-digit year)
+1. DRINK_FROM: The year this wine will start to peak (just the 4-digit year). If Non-Vintage, suggest the current year.
+2. DRINK_BY: The year this wine should be consumed by (just the 4-digit year). If Non-Vintage, suggest 3-5 years from now.
 3. EXPERT_NOTES: 2-3 sentences of professional tasting notes describing the expected flavor profile, structure, and character of this wine.
 
 Format your response exactly like this:
@@ -227,14 +231,15 @@ elif page == "Add a Bottle":
     region = st.text_input("Region (e.g. Burgundy, Napa Valley)")
     appellation = st.text_input("Appellation (e.g. Pommard, Stags Leap District)")
     varietal = st.text_input("Varietal (e.g. Pinot Noir, Cabernet Sauvignon)")
-    vintage = st.number_input("Vintage", min_value=1900, max_value=2100, value=2020)
+    no_vintage = st.checkbox("Non-Vintage (NV)")
+    vintage = None if no_vintage else st.number_input("Vintage", min_value=1900, max_value=2100, value=2020)
     quantity = st.number_input("Bottles in Cellar", min_value=1, value=1)
 
     # AI Lookup
     if st.button("🔍 Lookup Drink Window & Tasting Notes"):
-        if winery and varietal and region and vintage:
+        if winery and varietal and region:
             with st.spinner("Looking up wine info..."):
-                result = lookup_wine_info(winery, varietal, region, int(vintage))
+                result = lookup_wine_info(winery, varietal, region, vintage, appellation)
                 lines = result.strip().split("\n")
                 for line in lines:
                     if line.startswith("DRINK_FROM:"):
@@ -278,7 +283,8 @@ elif page == "Edit a Bottle":
         region = st.text_input("Region", value=bottle["region"])
         appellation = st.text_input("Appellation", value=bottle["appellation"])
         varietal = st.text_input("Varietal", value=bottle["varietal"])
-        vintage = st.number_input("Vintage", min_value=1900, max_value=2100, value=int(bottle["vintage"]))
+        no_vintage = st.checkbox("Non-Vintage (NV)", value=bottle["vintage"] is None or pd.isna(bottle["vintage"]))
+        vintage = None if no_vintage else st.number_input("Vintage", min_value=1900, max_value=2100, value=int(bottle["vintage"]) if not pd.isna(bottle["vintage"]) else 2020)
         quantity = st.number_input("Bottles in Cellar", min_value=0, value=int(bottle["quantity"]))
         drink_from = st.number_input("Drink From (year)", min_value=1900, max_value=2100, value=int(bottle["drink_from"]))
         drink_by = st.number_input("Drink By (year)", min_value=1900, max_value=2100, value=int(bottle["drink_by"]))
