@@ -1,5 +1,0 @@
-streamlit
-anthropic
-psycopg2-binary
-pandas
-python-dotenv
