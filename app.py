@@ -495,6 +495,7 @@ elif page == "Edit a Bottle":
             if st.button("Save Changes"):
                 update_bottle(bottle_id, winery, wine_name, region, appellation, varietal, vintage, quantity, drink_from, drink_by, your_notes, your_rating, expert_notes)
                 st.success("Bottle updated.")
+                st.rerun()
         with col2:
             if st.button("Delete Bottle"):
                 delete_bottle(bottle_id)
