@@ -78,7 +78,7 @@ def render_wine_table(df, current_year=None):
         if wine_name_str:
             display_name += f" {wine_name_str}"
 
-        sub_parts = [p for p in [appellation_str or varietal_str, region_str] if p]
+        sub_parts = [p for p in [varietal_str or appellation_str, region_str] if p]
         sub_line = " · ".join(sub_parts)
 
         try:
