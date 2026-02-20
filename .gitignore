@@ -1,3 +1,5 @@
 .env
 cellar.db
 venv/
+__pycache__/
+*.pyc
