@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000',
+baseURL: 'https://wine-cellar-production-154f.up.railway.app',
 })
 
 export type Bottle = {
