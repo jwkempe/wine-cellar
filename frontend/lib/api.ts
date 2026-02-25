@@ -1,8 +1,7 @@
 import axios from 'axios'
 
-// Production API
 const api = axios.create({
-  baseURL: 'https://wine-cellar-production-154f.up.railway.app',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
 })
 
 export type Bottle = {
