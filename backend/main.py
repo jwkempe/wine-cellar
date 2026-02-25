@@ -16,10 +16,8 @@ app = FastAPI()
 # Allow React frontend to talk to this backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://wine-cellar-cvl8mh3es-jwkempes-projects.vercel.app",
-    ],
+    allow_origin_regex="https://.*\.vercel\.app",
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
