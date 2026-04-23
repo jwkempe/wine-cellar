@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 
-from database import get_bottles, add_bottle, update_bottle, delete_bottle
+from database import get_conn, get_bottles, add_bottle, update_bottle, delete_bottle
 from ai import get_pairing_suggestion, get_recommendations, lookup_wine_info
 from auth import get_current_user
 
@@ -103,10 +103,9 @@ def recommendations(user_id: str = Depends(get_current_user)):
 
 @app.post("/admin/claim-bottles")
 def claim_bottles(user_id: str, password: str):
-    import psycopg2
     if password != os.getenv("CELLAR_PASSWORD", ""):
         raise HTTPException(status_code=403, detail="Forbidden")
-    conn = psycopg2.connect(os.getenv("DATABASE_URL", ""))
+    conn = get_conn()
     c = conn.cursor()
     c.execute("UPDATE bottles SET user_id = %s WHERE user_id IS NULL", (user_id,))
     updated = c.rowcount
