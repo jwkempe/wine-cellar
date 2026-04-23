@@ -98,3 +98,18 @@ def recommendations(user_id: str = Depends(get_current_user)):
     df = get_bottles(user_id)
     result = get_recommendations(df)
     return {"result": result}
+
+# ── One-time migration ────────────────────────────────────────────────────────
+
+@app.post("/admin/claim-bottles")
+def claim_bottles(user_id: str, password: str):
+    import psycopg2
+    if password != os.getenv("CELLAR_PASSWORD", ""):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    conn = psycopg2.connect(os.getenv("DATABASE_URL", ""))
+    c = conn.cursor()
+    c.execute("UPDATE bottles SET user_id = %s WHERE user_id IS NULL", (user_id,))
+    updated = c.rowcount
+    conn.commit()
+    conn.close()
+    return {"updated": updated}
