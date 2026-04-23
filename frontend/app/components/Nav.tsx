@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-import { UserButton, SignOutButton } from '@clerk/nextjs'
+import { UserButton } from '@clerk/nextjs'
 
 const links = [
   { href: '/', label: 'My Cellar' },
@@ -77,17 +77,15 @@ export default function Nav() {
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex w-56 shrink-0 min-h-screen bg-[#0a0907] border-r border-[#2e2a25] flex-col p-6">
-        <h2 className="text-[#f0ead8] text-xl font-light mb-1" style={{ fontFamily: 'serif' }}>
-          Wine Cellar
-        </h2>
+        <div className="flex items-center gap-3 mb-1">
+          <UserButton />
+          <h2 className="text-[#f0ead8] text-xl font-light" style={{ fontFamily: 'serif' }}>
+            Wine Cellar
+          </h2>
+        </div>
         <p className="text-[#f0ead8]/20 text-xs tracking-widest uppercase mb-8">Collection</p>
         <NavLinks />
-        <div className="mt-auto flex flex-col gap-3">
-          <SignOutButton>
-            <button className="text-sm px-3 py-2 rounded text-[#f0ead8]/50 hover:text-[#f0ead8] hover:bg-[#f0ead8]/5 transition-colors text-left">
-              Sign out
-            </button>
-          </SignOutButton>
+        <div className="mt-auto">
           <p className="text-[#f0ead8]/20 text-xs tracking-wider">Powered by Claude</p>
         </div>
       </aside>
