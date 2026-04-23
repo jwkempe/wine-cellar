@@ -15,6 +15,7 @@ export default function AddBottle() {
   const [isNV, setIsNV] = useState(false)
   const [notTried, setNotTried] = useState(true)
   const [lookingUp, setLookingUp] = useState(false)
+  const [lookupError, setLookupError] = useState<string | null>(null)
 
   const mutation = useMutation({
     mutationFn: (data: BottleInput) => createBottle(data),
@@ -31,6 +32,7 @@ export default function AddBottle() {
   async function handleLookup() {
     if (!form.winery || !form.varietal || !form.region) return
     setLookingUp(true)
+    setLookupError(null)
     try {
       const params: Record<string, string> = {
         winery: form.winery,
@@ -46,6 +48,8 @@ export default function AddBottle() {
         if (line.startsWith('DRINK_BY:')) set('drink_by', parseInt(line.replace('DRINK_BY:', '').trim()))
         if (line.startsWith('EXPERT_NOTES:')) set('expert_notes', line.replace('EXPERT_NOTES:', '').trim())
       }
+    } catch {
+      setLookupError('Could not reach the sommelier. Please try again or fill in the details manually.')
     } finally {
       setLookingUp(false)
     }
@@ -79,7 +83,7 @@ export default function AddBottle() {
       </h1>
       <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-8">Catalog a new wine</p>
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div>
           <label className={labelClass}>Winery</label>
           <input className={inputClass} value={form.winery || ''} onChange={e => set('winery', e.target.value)} />
@@ -128,7 +132,11 @@ export default function AddBottle() {
           {lookingUp ? 'Consulting the sommelier...' : 'Lookup Drink Window & Tasting Notes'}
         </button>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        {lookupError && (
+          <p className="text-red-400/70 text-sm mb-4">{lookupError}</p>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className={labelClass}>Drink From</label>
             <input className={inputClass} type="number" value={form.drink_from ?? ''} onChange={e => set('drink_from', parseInt(e.target.value))} />
@@ -159,6 +167,10 @@ export default function AddBottle() {
           </div>
         )}
       </div>
+
+      {mutation.isError && (
+        <p className="text-red-400/70 text-sm mb-4">Failed to save the bottle. Please try again.</p>
+      )}
 
       <button
         onClick={handleSubmit}

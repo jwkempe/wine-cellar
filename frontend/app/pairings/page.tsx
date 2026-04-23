@@ -8,8 +8,9 @@ export default function FoodPairings() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [pairing, setPairing] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const { data: bottles } = useQuery({
+  const { data: bottles, isError: bottlesError } = useQuery({
     queryKey: ['bottles'],
     queryFn: getBottles,
   })
@@ -17,9 +18,12 @@ export default function FoodPairings() {
   async function handleGetPairing() {
     if (!selectedId) return
     setLoading(true)
+    setError(null)
     try {
       const data = await getPairing(selectedId)
       setPairing(data.result)
+    } catch {
+      setError('Could not get pairing suggestions. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -34,6 +38,10 @@ export default function FoodPairings() {
       </h1>
       <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-8">Sommelier recommendations</p>
 
+      {bottlesError && (
+        <p className="text-red-400/70 text-sm mb-4">Could not load your bottles. Please refresh the page.</p>
+      )}
+
       <div className="mb-4">
         <select
           className={selectClass}
@@ -41,6 +49,7 @@ export default function FoodPairings() {
           onChange={e => {
             setSelectedId(parseInt(e.target.value))
             setPairing(null)
+            setError(null)
           }}
         >
           <option value="">Select a bottle...</option>
@@ -55,10 +64,12 @@ export default function FoodPairings() {
       <button
         onClick={handleGetPairing}
         disabled={!selectedId || loading}
-        className="text-sm border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded hover:bg-[#c9a84c]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed mb-6"
+        className="text-sm border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded hover:bg-[#c9a84c]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed mb-4"
       >
         {loading ? 'Consulting the sommelier...' : 'Get Pairing Suggestions'}
       </button>
+
+      {error && <p className="text-red-400/70 text-sm mb-4">{error}</p>}
 
       {pairing && (
         <div className="border border-[#2e2a25] rounded p-6 bg-[#161412]">

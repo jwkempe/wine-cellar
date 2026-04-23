@@ -15,7 +15,7 @@ function isReady(bottle: Bottle) {
 type SortKey = 'winery' | 'vintage' | 'rating' | 'ready'
 
 export default function Home() {
-  const { data: bottles, isLoading } = useQuery({
+  const { data: bottles, isLoading, isError } = useQuery({
     queryKey: ['bottles'],
     queryFn: getBottles,
   })
@@ -39,6 +39,7 @@ export default function Home() {
   }, [bottles, search, sortKey])
 
   if (isLoading) return <p className="text-[#f0ead8]/40">Loading your cellar...</p>
+  if (isError) return <p className="text-red-400/70 text-sm">Could not load your cellar. Please check your connection and refresh.</p>
   if (!bottles?.length) return <p className="text-[#f0ead8]/40">Your cellar is empty. Add your first bottle!</p>
 
   const totalBottles = bottles.reduce((sum, b) => sum + b.quantity, 0)
@@ -54,7 +55,7 @@ export default function Home() {
       <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-8">Collection Overview</p>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
           { label: 'Total Bottles', value: totalBottles },
           { label: 'Unique Wines', value: bottles.length },
@@ -69,7 +70,7 @@ export default function Home() {
       </div>
 
       {/* Search and sort controls */}
-      <div className="flex gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <input
           type="text"
           placeholder="Search wines..."
@@ -98,8 +99,8 @@ export default function Home() {
         {filtered.map(bottle => (
           <Link href={`/edit/${bottle.id}`} key={bottle.id}>
             <div className="border border-[#2e2a25] rounded p-4 bg-[#161412] hover:bg-[#1c1917] transition-colors cursor-pointer">
-              <div className="flex justify-between items-start">
-                <div>
+              <div className="flex justify-between items-start gap-3">
+                <div className="min-w-0">
                   <span className="text-[#f0ead8] text-lg font-light" style={{ fontFamily: 'serif' }}>
                     {bottle.winery}{bottle.wine_name ? ` ${bottle.wine_name}` : ''}
                   </span>
@@ -110,11 +111,9 @@ export default function Home() {
                     {[bottle.varietal, bottle.region].filter(Boolean).join(' · ')}
                   </p>
                 </div>
-                <div className="text-right flex items-center gap-3">
-                  <span className="text-[#f0ead8]/30 text-xs">
-                    Qty {bottle.quantity}
-                  </span>
-                  <span className="text-[#f0ead8]/40 text-sm">
+                <div className="text-right flex flex-wrap justify-end items-center gap-2 shrink-0">
+                  <span className="text-[#f0ead8]/30 text-xs">Qty {bottle.quantity}</span>
+                  <span className="text-[#f0ead8]/40 text-sm hidden sm:inline">
                     {bottle.drink_from && bottle.drink_by
                       ? `${bottle.drink_from} – ${bottle.drink_by}`
                       : '—'}
