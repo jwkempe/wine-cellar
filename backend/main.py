@@ -8,9 +8,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 
-from database import get_conn, get_bottles, add_bottle, update_bottle, delete_bottle
+from database import get_conn, get_bottles, add_bottle, update_bottle, delete_bottle, init_db
 from ai import get_pairing_suggestion, get_recommendations, lookup_wine_info
 from auth import get_current_user
+
+init_db()
 
 load_dotenv()
 
