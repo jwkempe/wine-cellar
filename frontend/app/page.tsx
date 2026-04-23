@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { getBottles, Bottle } from '@/lib/api'
 import Link from 'next/link'
+import { useState, useMemo } from 'react'
 
 const currentYear = new Date().getFullYear()
 
@@ -11,11 +12,31 @@ function isReady(bottle: Bottle) {
     currentYear >= bottle.drink_from && currentYear <= bottle.drink_by
 }
 
+type SortKey = 'winery' | 'vintage' | 'rating' | 'ready'
+
 export default function Home() {
   const { data: bottles, isLoading } = useQuery({
     queryKey: ['bottles'],
     queryFn: getBottles,
   })
+
+  const [search, setSearch] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('winery')
+
+  const filtered = useMemo(() => {
+    if (!bottles) return []
+    const q = search.toLowerCase()
+    const results = bottles.filter(b =>
+      [b.winery, b.wine_name, b.varietal, b.region].some(v => v?.toLowerCase().includes(q))
+    )
+    return [...results].sort((a, b) => {
+      if (sortKey === 'winery') return (a.winery ?? '').localeCompare(b.winery ?? '')
+      if (sortKey === 'vintage') return (b.vintage ?? 0) - (a.vintage ?? 0)
+      if (sortKey === 'rating') return (b.your_rating ?? 0) - (a.your_rating ?? 0)
+      if (sortKey === 'ready') return Number(isReady(b)) - Number(isReady(a))
+      return 0
+    })
+  }, [bottles, search, sortKey])
 
   if (isLoading) return <p className="text-[#f0ead8]/40">Loading your cellar...</p>
   if (!bottles?.length) return <p className="text-[#f0ead8]/40">Your cellar is empty. Add your first bottle!</p>
@@ -47,9 +68,34 @@ export default function Home() {
         ))}
       </div>
 
+      {/* Search and sort controls */}
+      <div className="flex gap-3 mb-4">
+        <input
+          type="text"
+          placeholder="Search wines..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-1 bg-[#161412] border border-[#2e2a25] rounded px-3 py-2 text-sm text-[#f0ead8] placeholder-[#f0ead8]/25 focus:outline-none focus:border-[#f0ead8]/30"
+        />
+        <select
+          value={sortKey}
+          onChange={e => setSortKey(e.target.value as SortKey)}
+          className="bg-[#161412] border border-[#2e2a25] rounded px-3 py-2 text-sm text-[#f0ead8]/60 focus:outline-none focus:border-[#f0ead8]/30"
+        >
+          <option value="winery">Sort: Winery</option>
+          <option value="vintage">Sort: Vintage</option>
+          <option value="rating">Sort: Rating</option>
+          <option value="ready">Sort: Ready</option>
+        </select>
+      </div>
+
+      {filtered.length === 0 && (
+        <p className="text-[#f0ead8]/30 text-sm mt-4">No wines match your search.</p>
+      )}
+
       {/* Bottle list */}
       <div className="grid gap-2">
-        {bottles.map(bottle => (
+        {filtered.map(bottle => (
           <Link href={`/edit/${bottle.id}`} key={bottle.id}>
             <div className="border border-[#2e2a25] rounded p-4 bg-[#161412] hover:bg-[#1c1917] transition-colors cursor-pointer">
               <div className="flex justify-between items-start">
@@ -69,7 +115,9 @@ export default function Home() {
                     Qty {bottle.quantity}
                   </span>
                   <span className="text-[#f0ead8]/40 text-sm">
-                    {bottle.drink_from} – {bottle.drink_by}
+                    {bottle.drink_from && bottle.drink_by
+                      ? `${bottle.drink_from} – ${bottle.drink_by}`
+                      : '—'}
                   </span>
                   {isReady(bottle) && (
                     <span className="text-xs text-[#5a8a5a] border border-[#5a8a5a]/50 rounded px-1.5 py-0.5">
