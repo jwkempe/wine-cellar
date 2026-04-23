@@ -1,10 +1,12 @@
+import math
+import os
+
+import pandas as pd
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-import os
-from dotenv import load_dotenv
-import pandas as pd
 
 from database import get_bottles, add_bottle, update_bottle, delete_bottle
 from ai import get_pairing_suggestion, get_recommendations, lookup_wine_info
@@ -43,7 +45,6 @@ class Bottle(BaseModel):
 
 @app.get("/bottles")
 def list_bottles():
-    import math
     df = get_bottles()
     records = df.to_dict(orient="records")
     cleaned = [
@@ -82,7 +83,10 @@ def wine_lookup(winery: str, varietal: str, region: str,
 @app.get("/ai/pairing/{bottle_id}")
 def food_pairing(bottle_id: int):
     df = get_bottles()
-    bottle = df[df["id"] == bottle_id].iloc[0]
+    matches = df[df["id"] == bottle_id]
+    if matches.empty:
+        raise HTTPException(status_code=404, detail="Bottle not found")
+    bottle = matches.iloc[0]
     result = get_pairing_suggestion(
         bottle["winery"], bottle["varietal"], bottle["region"],
         bottle["vintage"], bottle["your_notes"], bottle["expert_notes"]
