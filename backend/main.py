@@ -3,22 +3,22 @@ import os
 
 import pandas as pd
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 
 from database import get_bottles, add_bottle, update_bottle, delete_bottle
 from ai import get_pairing_suggestion, get_recommendations, lookup_wine_info
+from auth import get_current_user
 
 load_dotenv()
 
 app = FastAPI()
 
-# Allow React frontend to talk to this backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex="https://.*\.vercel\.app",
+    allow_origin_regex="https://.*\\.vercel\\.app",
     allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
@@ -44,45 +44,45 @@ class Bottle(BaseModel):
 # ── Bottles ───────────────────────────────────────────────────────────────────
 
 @app.get("/bottles")
-def list_bottles():
-    df = get_bottles()
+def list_bottles(user_id: str = Depends(get_current_user)):
+    df = get_bottles(user_id)
     records = df.to_dict(orient="records")
-    cleaned = [
+    return [
         {k: (None if isinstance(v, float) and math.isnan(v) else v) for k, v in row.items()}
         for row in records
     ]
-    return cleaned
 
 @app.post("/bottles")
-def create_bottle(b: Bottle):
+def create_bottle(b: Bottle, user_id: str = Depends(get_current_user)):
     add_bottle(b.winery, b.wine_name, b.region, b.appellation, b.varietal,
                b.vintage, b.quantity, b.drink_from, b.drink_by,
-               b.your_notes, b.your_rating, b.expert_notes)
+               b.your_notes, b.your_rating, b.expert_notes, user_id)
     return {"status": "ok"}
 
 @app.put("/bottles/{bottle_id}")
-def edit_bottle(bottle_id: int, b: Bottle):
+def edit_bottle(bottle_id: int, b: Bottle, user_id: str = Depends(get_current_user)):
     update_bottle(bottle_id, b.winery, b.wine_name, b.region, b.appellation,
                   b.varietal, b.vintage, b.quantity, b.drink_from, b.drink_by,
-                  b.your_notes, b.your_rating, b.expert_notes)
+                  b.your_notes, b.your_rating, b.expert_notes, user_id)
     return {"status": "ok"}
 
 @app.delete("/bottles/{bottle_id}")
-def remove_bottle(bottle_id: int):
-    delete_bottle(bottle_id)
+def remove_bottle(bottle_id: int, user_id: str = Depends(get_current_user)):
+    delete_bottle(bottle_id, user_id)
     return {"status": "ok"}
 
 # ── AI ────────────────────────────────────────────────────────────────────────
 
 @app.get("/ai/lookup")
 def wine_lookup(winery: str, varietal: str, region: str,
-                vintage: Optional[int] = None, appellation: Optional[str] = None):
+                vintage: Optional[int] = None, appellation: Optional[str] = None,
+                user_id: str = Depends(get_current_user)):
     result = lookup_wine_info(winery, varietal, region, vintage, appellation)
     return {"result": result}
 
 @app.get("/ai/pairing/{bottle_id}")
-def food_pairing(bottle_id: int):
-    df = get_bottles()
+def food_pairing(bottle_id: int, user_id: str = Depends(get_current_user)):
+    df = get_bottles(user_id)
     matches = df[df["id"] == bottle_id]
     if matches.empty:
         raise HTTPException(status_code=404, detail="Bottle not found")
@@ -94,7 +94,7 @@ def food_pairing(bottle_id: int):
     return {"result": result}
 
 @app.get("/ai/recommendations")
-def recommendations():
-    df = get_bottles()
+def recommendations(user_id: str = Depends(get_current_user)):
+    df = get_bottles(user_id)
     result = get_recommendations(df)
     return {"result": result}

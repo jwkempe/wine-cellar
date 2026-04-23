@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import { UserButton } from '@clerk/nextjs'
 
 const links = [
   { href: '/', label: 'My Cellar' },
@@ -42,13 +43,16 @@ export default function Nav() {
       {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-[#0a0907] border-b border-[#2e2a25] flex items-center justify-between px-4">
         <span className="text-[#f0ead8] text-lg font-light" style={{ fontFamily: 'serif' }}>Wine Cellar</span>
-        <button
-          onClick={() => setOpen(o => !o)}
-          aria-label="Toggle menu"
-          className="text-[#f0ead8]/50 hover:text-[#f0ead8] p-2 text-lg leading-none"
-        >
-          {open ? '✕' : '☰'}
-        </button>
+        <div className="flex items-center gap-3">
+          <UserButton />
+          <button
+            onClick={() => setOpen(o => !o)}
+            aria-label="Toggle menu"
+            className="text-[#f0ead8]/50 hover:text-[#f0ead8] p-2 text-lg leading-none"
+          >
+            {open ? '✕' : '☰'}
+          </button>
+        </div>
       </div>
 
       {/* Mobile backdrop */}
@@ -78,7 +82,8 @@ export default function Nav() {
         </h2>
         <p className="text-[#f0ead8]/20 text-xs tracking-widest uppercase mb-8">Collection</p>
         <NavLinks />
-        <div className="mt-auto">
+        <div className="mt-auto flex items-center gap-3">
+          <UserButton />
           <p className="text-[#f0ead8]/20 text-xs tracking-wider">Powered by Claude</p>
         </div>
       </aside>
