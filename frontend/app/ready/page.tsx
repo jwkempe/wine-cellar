@@ -7,12 +7,13 @@ import Link from 'next/link'
 const currentYear = new Date().getFullYear()
 
 export default function ReadyToDrink() {
-  const { data: bottles, isLoading } = useQuery({
+  const { data: bottles, isLoading, isError } = useQuery({
     queryKey: ['bottles'],
     queryFn: getBottles,
   })
 
   if (isLoading) return <p className="text-[#f0ead8]/40">Loading...</p>
+  if (isError) return <p className="text-red-400/70 text-sm">Could not load your cellar. Please refresh the page.</p>
 
   const ready = bottles?.filter(b =>
     b.drink_from !== null && b.drink_by !== null &&
@@ -35,8 +36,8 @@ export default function ReadyToDrink() {
             {ready.map(bottle => (
               <Link href={`/edit/${bottle.id}`} key={bottle.id}>
                 <div className="border border-[#2e2a25] rounded p-4 bg-[#161412] hover:bg-[#1c1917] transition-colors cursor-pointer">
-                  <div className="flex justify-between items-start">
-                    <div>
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="min-w-0">
                       <span className="text-[#f0ead8] text-lg font-light" style={{ fontFamily: 'serif' }}>
                         {bottle.winery}{bottle.wine_name ? ` ${bottle.wine_name}` : ''}
                       </span>
@@ -45,7 +46,7 @@ export default function ReadyToDrink() {
                         {[bottle.varietal, bottle.region].filter(Boolean).join(' · ')}
                       </p>
                     </div>
-                    <span className="text-xs text-[#5a8a5a] border border-[#5a8a5a]/50 rounded px-1.5 py-0.5">
+                    <span className="text-xs text-[#5a8a5a] border border-[#5a8a5a]/50 rounded px-1.5 py-0.5 shrink-0">
                       Ready
                     </span>
                   </div>

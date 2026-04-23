@@ -8,8 +8,6 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
-DATABASE_URL = os.getenv("DATABASE_URL", "")
-
 
 def get_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
@@ -51,7 +49,7 @@ def add_bottle(winery, wine_name, region, appellation, varietal, vintage, quanti
 
 
 def get_bottles():
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = get_conn()
     df = pd.read_sql_query("SELECT * FROM bottles ORDER BY id", conn)
     conn.close()
     for col in ["vintage", "quantity", "drink_from", "drink_by", "your_rating"]:

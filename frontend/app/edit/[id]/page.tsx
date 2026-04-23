@@ -11,7 +11,7 @@ export default function EditBottle() {
   const id = parseInt(params.id as string)
   const queryClient = useQueryClient()
 
-  const { data: bottles } = useQuery({
+  const { data: bottles, isLoading, isError } = useQuery({
     queryKey: ['bottles'],
     queryFn: getBottles,
   })
@@ -68,7 +68,9 @@ export default function EditBottle() {
     updateMutation.mutate(data)
   }
 
-  if (!bottle) return <p className="text-[#f0ead8]/40">Loading...</p>
+  if (isLoading) return <p className="text-[#f0ead8]/40">Loading...</p>
+  if (isError) return <p className="text-red-400/70 text-sm">Could not load bottle. Please go back and try again.</p>
+  if (!bottle) return <p className="text-[#f0ead8]/40">Bottle not found.</p>
 
   const inputClass = "w-full bg-[#0f0d0b] border border-[#2e2a25] rounded px-3 py-2 text-[#f0ead8] text-sm placeholder-[#f0ead8]/20 focus:outline-none focus:border-[#c9a84c]/50"
   const labelClass = "block text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-1.5"
@@ -80,7 +82,7 @@ export default function EditBottle() {
       </h1>
       <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-8">Update your records</p>
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div>
           <label className={labelClass}>Winery</label>
           <input className={inputClass} value={form.winery || ''} onChange={e => set('winery', e.target.value)} />
@@ -121,7 +123,7 @@ export default function EditBottle() {
 
       <div className="border-t border-[#2e2a25] pt-6 mt-6 mb-4">
         <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-4">Drink Window & Tasting Notes</p>
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className={labelClass}>Drink From</label>
             <input className={inputClass} type="number" value={form.drink_from ?? ''} onChange={e => set('drink_from', parseInt(e.target.value))} />
@@ -151,6 +153,13 @@ export default function EditBottle() {
           </div>
         )}
       </div>
+
+      {updateMutation.isError && (
+        <p className="text-red-400/70 text-sm mb-4">Failed to save changes. Please try again.</p>
+      )}
+      {deleteMutation.isError && (
+        <p className="text-red-400/70 text-sm mb-4">Failed to delete bottle. Please try again.</p>
+      )}
 
       <div className="flex gap-3">
         <button
