@@ -49,7 +49,7 @@ def add_bottle(winery, wine_name, region, appellation, varietal, vintage, quanti
 
 
 def get_bottles():
-    conn = get_conn()
+    conn = psycopg2.connect(DATABASE_URL)
     df = pd.read_sql_query("SELECT * FROM bottles ORDER BY id", conn)
     conn.close()
     for col in ["vintage", "quantity", "drink_from", "drink_by", "your_rating"]:
