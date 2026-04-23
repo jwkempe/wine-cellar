@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-import { UserButton } from '@clerk/nextjs'
+import { UserButton, SignOutButton } from '@clerk/nextjs'
 
 const links = [
   { href: '/', label: 'My Cellar' },
@@ -82,8 +82,12 @@ export default function Nav() {
         </h2>
         <p className="text-[#f0ead8]/20 text-xs tracking-widest uppercase mb-8">Collection</p>
         <NavLinks />
-        <div className="mt-auto flex items-center gap-3">
-          <UserButton />
+        <div className="mt-auto flex flex-col gap-3">
+          <SignOutButton>
+            <button className="text-sm px-3 py-2 rounded text-[#f0ead8]/50 hover:text-[#f0ead8] hover:bg-[#f0ead8]/5 transition-colors text-left">
+              Sign out
+            </button>
+          </SignOutButton>
           <p className="text-[#f0ead8]/20 text-xs tracking-wider">Powered by Claude</p>
         </div>
       </aside>
