@@ -54,7 +54,7 @@ export default function RootLayout({
   const [queryClient] = useState(() => new QueryClient())
 
   return (
-    <ClerkProvider afterSignInUrl="/" afterSignUpUrl="/">
+    <ClerkProvider>
       <html lang="en">
         <body className="bg-[#0f0d0b]">
           <QueryClientProvider client={queryClient}>
