@@ -78,7 +78,7 @@ export default function AddBottle() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-3xl font-light text-[#f0ead8] mb-1" style={{ fontFamily: 'serif' }}>
+      <h1 className="text-3xl font-light text-[#f0ead8] mb-1">
         Add a Bottle
       </h1>
       <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-8">Catalog a new wine</p>

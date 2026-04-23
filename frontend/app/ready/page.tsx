@@ -22,7 +22,7 @@ export default function ReadyToDrink() {
 
   return (
     <div>
-      <h1 className="text-3xl font-light text-[#f0ead8] mb-1" style={{ fontFamily: 'serif' }}>
+      <h1 className="text-3xl font-light text-[#f0ead8] mb-1">
         Ready to Drink
       </h1>
       <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-8">In their drinking window now</p>
@@ -38,7 +38,7 @@ export default function ReadyToDrink() {
                 <div className="border border-[#2e2a25] rounded p-4 bg-[#161412] hover:bg-[#1c1917] transition-colors cursor-pointer">
                   <div className="flex justify-between items-start gap-3">
                     <div className="min-w-0">
-                      <span className="text-[#f0ead8] text-lg font-light" style={{ fontFamily: 'serif' }}>
+                      <span className="text-[#f0ead8] text-lg font-light">
                         {bottle.winery}{bottle.wine_name ? ` ${bottle.wine_name}` : ''}
                       </span>
                       <span className="text-[#f0ead8]/40 text-sm ml-3">{bottle.vintage ?? 'NV'}</span>

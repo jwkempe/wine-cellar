@@ -42,7 +42,7 @@ export default function Nav() {
     <>
       {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-[#0a0907] border-b border-[#2e2a25] flex items-center justify-between px-4">
-        <span className="text-[#f0ead8] text-lg font-light" style={{ fontFamily: 'serif' }}>Wine Cellar</span>
+        <span className="text-[#f0ead8] text-lg font-light">Wine Cellar</span>
         <div className="flex items-center gap-3">
           <UserButton />
           <button
@@ -79,7 +79,7 @@ export default function Nav() {
       <aside className="hidden lg:flex w-56 shrink-0 min-h-screen bg-[#0a0907] border-r border-[#2e2a25] flex-col p-6">
         <div className="flex items-center gap-3 mb-1">
           <UserButton />
-          <h2 className="text-[#f0ead8] text-xl font-light" style={{ fontFamily: 'serif' }}>
+          <h2 className="text-[#f0ead8] text-xl font-light">
             Wine Cellar
           </h2>
         </div>

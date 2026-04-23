@@ -77,7 +77,7 @@ export default function EditBottle() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-3xl font-light text-[#f0ead8] mb-1" style={{ fontFamily: 'serif' }}>
+      <h1 className="text-3xl font-light text-[#f0ead8] mb-1">
         Edit Bottle
       </h1>
       <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-8">Update your records</p>
