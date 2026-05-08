@@ -76,6 +76,8 @@ export default function Home() {
   const avgRating = ratings.length
     ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1)
     : '—'
+  const cellarValue = bottles.reduce((sum, b) => sum + (b.purchase_price ?? 0) * b.quantity, 0)
+  const cellarValueStr = cellarValue > 0 ? `$${cellarValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—'
 
   return (
     <div className="min-w-0">
@@ -89,6 +91,7 @@ export default function Home() {
           { label: 'Wines', value: bottles.length },
           { label: 'Ready', value: readyCount },
           { label: 'Avg Rating', value: avgRating },
+          { label: 'Cellar Value', value: cellarValueStr },
         ].map((s, i) => (
           <div key={s.label} className={`${i > 0 ? 'pl-6 border-l border-[#2e2a25]' : ''}`}>
             <p className="text-xl font-semibold text-[#f0ead8] tabular-nums">{s.value}</p>

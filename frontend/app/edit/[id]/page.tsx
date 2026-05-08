@@ -64,6 +64,7 @@ export default function EditBottle() {
       your_notes: form.your_notes || null,
       your_rating: notTried ? null : (form.your_rating ?? null),
       expert_notes: form.expert_notes || null,
+      purchase_price: form.purchase_price ?? null,
     }
     updateMutation.mutate(data)
   }
@@ -107,6 +108,11 @@ export default function EditBottle() {
           <label className={labelClass}>Quantity</label>
           <input className={inputClass} type="number" min={0} value={form.quantity ?? 1} onChange={e => set('quantity', parseInt(e.target.value))} />
         </div>
+      </div>
+
+      <div className="mb-4">
+        <label className={labelClass}>Purchase Price (per bottle, $)</label>
+        <input className={inputClass} type="number" min={0} step={0.01} placeholder="Optional" value={form.purchase_price ?? ''} onChange={e => set('purchase_price', e.target.value ? parseFloat(e.target.value) : null)} />
       </div>
 
       <div className="flex items-center gap-3 mb-4">
