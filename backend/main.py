@@ -42,6 +42,7 @@ class Bottle(BaseModel):
     your_notes: Optional[str] = None
     your_rating: Optional[float] = None
     expert_notes: Optional[str] = None
+    purchase_price: Optional[float] = None
 
 # ── Bottles ───────────────────────────────────────────────────────────────────
 
@@ -58,14 +59,14 @@ def list_bottles(user_id: str = Depends(get_current_user)):
 def create_bottle(b: Bottle, user_id: str = Depends(get_current_user)):
     add_bottle(b.winery, b.wine_name, b.region, b.appellation, b.varietal,
                b.vintage, b.quantity, b.drink_from, b.drink_by,
-               b.your_notes, b.your_rating, b.expert_notes, user_id)
+               b.your_notes, b.your_rating, b.expert_notes, user_id, b.purchase_price)
     return {"status": "ok"}
 
 @app.put("/bottles/{bottle_id}")
 def edit_bottle(bottle_id: int, b: Bottle, user_id: str = Depends(get_current_user)):
     update_bottle(bottle_id, b.winery, b.wine_name, b.region, b.appellation,
                   b.varietal, b.vintage, b.quantity, b.drink_from, b.drink_by,
-                  b.your_notes, b.your_rating, b.expert_notes, user_id)
+                  b.your_notes, b.your_rating, b.expert_notes, user_id, b.purchase_price)
     return {"status": "ok"}
 
 @app.delete("/bottles/{bottle_id}")

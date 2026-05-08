@@ -18,6 +18,7 @@ export type Bottle = {
   your_notes: string | null
   your_rating: number | null
   expert_notes: string | null
+  purchase_price: number | null
 }
 
 export type BottleInput = Omit<Bottle, 'id'>

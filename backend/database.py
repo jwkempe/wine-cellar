@@ -31,26 +31,29 @@ def init_db():
             your_notes TEXT,
             your_rating REAL,
             expert_notes TEXT,
-            user_id TEXT
+            user_id TEXT,
+            purchase_price REAL
         )
     ''')
     # Migration: add user_id to existing tables that predate this column
     c.execute('ALTER TABLE bottles ADD COLUMN IF NOT EXISTS user_id TEXT')
+    c.execute('ALTER TABLE bottles ADD COLUMN IF NOT EXISTS purchase_price REAL')
     conn.commit()
     conn.close()
 
 
 def add_bottle(winery, wine_name, region, appellation, varietal, vintage, quantity,
-               drink_from, drink_by, your_notes, your_rating, expert_notes, user_id=None):
+               drink_from, drink_by, your_notes, your_rating, expert_notes, user_id=None,
+               purchase_price=None):
     conn = get_conn()
     c = conn.cursor()
     c.execute('''
         INSERT INTO bottles (winery, wine_name, region, appellation, varietal, vintage,
                              quantity, drink_from, drink_by, your_notes, your_rating,
-                             expert_notes, user_id)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                             expert_notes, user_id, purchase_price)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ''', (winery, wine_name, region, appellation, varietal, vintage, quantity,
-          drink_from, drink_by, your_notes, your_rating, expert_notes, user_id))
+          drink_from, drink_by, your_notes, your_rating, expert_notes, user_id, purchase_price))
     conn.commit()
     conn.close()
 
@@ -66,7 +69,7 @@ def get_bottles(user_id: str | None = None) -> pd.DataFrame:
     else:
         df = pd.read_sql_query("SELECT * FROM bottles ORDER BY id", conn)
     conn.close()
-    for col in ["vintage", "quantity", "drink_from", "drink_by", "your_rating"]:
+    for col in ["vintage", "quantity", "drink_from", "drink_by", "your_rating", "purchase_price"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
     return df
@@ -74,17 +77,17 @@ def get_bottles(user_id: str | None = None) -> pd.DataFrame:
 
 def update_bottle(id, winery, wine_name, region, appellation, varietal, vintage,
                   quantity, drink_from, drink_by, your_notes, your_rating,
-                  expert_notes, user_id=None):
+                  expert_notes, user_id=None, purchase_price=None):
     conn = get_conn()
     c = conn.cursor()
     c.execute('''
         UPDATE bottles SET
             winery=%s, wine_name=%s, region=%s, appellation=%s, varietal=%s, vintage=%s,
             quantity=%s, drink_from=%s, drink_by=%s, your_notes=%s,
-            your_rating=%s, expert_notes=%s
+            your_rating=%s, expert_notes=%s, purchase_price=%s
         WHERE id=%s AND (user_id=%s OR user_id IS NULL)
     ''', (winery, wine_name, region, appellation, varietal, vintage, quantity,
-          drink_from, drink_by, your_notes, your_rating, expert_notes, id, user_id))
+          drink_from, drink_by, your_notes, your_rating, expert_notes, purchase_price, id, user_id))
     conn.commit()
     conn.close()
 
