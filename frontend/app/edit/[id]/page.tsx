@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getBottles, updateBottle, deleteBottle, BottleInput } from '@/lib/api'
+import { getBottles, updateBottle, deleteBottle, drinkBottle, BottleInput } from '@/lib/api'
 import { useRouter, useParams } from 'next/navigation'
 
 export default function EditBottle() {
@@ -21,6 +21,10 @@ export default function EditBottle() {
   const [form, setForm] = useState<Partial<BottleInput>>({})
   const [isNV, setIsNV] = useState(false)
   const [notTried, setNotTried] = useState(true)
+  const [drinkQty, setDrinkQty] = useState(1)
+  const [drinkDate, setDrinkDate] = useState(new Date().toISOString().slice(0, 10))
+  const [drinkNotes, setDrinkNotes] = useState('')
+  const [drinkSuccess, setDrinkSuccess] = useState(false)
 
   useEffect(() => {
     if (bottle) {
@@ -43,6 +47,16 @@ export default function EditBottle() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bottles'] })
       router.push('/')
+    },
+  })
+
+  const drinkMutation = useMutation({
+    mutationFn: () => drinkBottle(id, { quantity: drinkQty, consumed_on: drinkDate, notes: drinkNotes || null }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bottles'] })
+      queryClient.invalidateQueries({ queryKey: ['log'] })
+      setDrinkSuccess(true)
+      setTimeout(() => router.push('/'), 800)
     },
   })
 
@@ -158,6 +172,37 @@ export default function EditBottle() {
             <input className={inputClass} type="number" min={0} max={100} step={0.5} value={form.your_rating ?? 90} onChange={e => set('your_rating', parseFloat(e.target.value))} />
           </div>
         )}
+      </div>
+
+      <div className="border-t border-[#2e2a25] pt-6 mb-6">
+        <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-4">Log a Drink</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className={labelClass}>Bottles Consumed</label>
+            <input className={inputClass} type="number" min={1} max={form.quantity ?? 1} value={drinkQty} onChange={e => setDrinkQty(parseInt(e.target.value))} />
+          </div>
+          <div>
+            <label className={labelClass}>Date</label>
+            <input className={inputClass} type="date" value={drinkDate} onChange={e => setDrinkDate(e.target.value)} />
+          </div>
+        </div>
+        <div className="mb-4">
+          <label className={labelClass}>Notes (optional)</label>
+          <input className={inputClass} placeholder="e.g. Great with dinner" value={drinkNotes} onChange={e => setDrinkNotes(e.target.value)} />
+        </div>
+        {drinkMutation.isError && (
+          <p className="text-red-400/70 text-sm mb-3">Failed to log drink. Please try again.</p>
+        )}
+        {drinkSuccess && (
+          <p className="text-[#5a8a5a] text-sm mb-3">Logged! Redirecting...</p>
+        )}
+        <button
+          onClick={() => drinkMutation.mutate()}
+          disabled={drinkMutation.isPending || drinkSuccess}
+          className="border border-[#5a8a5a]/50 text-[#5a8a5a] px-5 py-2 rounded text-sm tracking-widest uppercase hover:bg-[#5a8a5a]/10 transition-colors disabled:opacity-50"
+        >
+          {drinkMutation.isPending ? 'Logging...' : 'Log a Drink'}
+        </button>
       </div>
 
       {updateMutation.isError && (

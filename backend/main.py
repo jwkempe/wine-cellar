@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 
-from database import get_conn, get_bottles, add_bottle, update_bottle, delete_bottle, init_db
+from database import get_conn, get_bottles, add_bottle, update_bottle, delete_bottle, init_db, log_consumption, get_consumption_log
 from ai import get_pairing_suggestion, get_recommendations, lookup_wine_info
 from auth import get_current_user
 
@@ -44,6 +44,12 @@ class Bottle(BaseModel):
     expert_notes: Optional[str] = None
     purchase_price: Optional[float] = None
 
+
+class DrinkEntry(BaseModel):
+    quantity: int = 1
+    consumed_on: str  # ISO date string YYYY-MM-DD
+    notes: Optional[str] = None
+
 # ── Bottles ───────────────────────────────────────────────────────────────────
 
 @app.get("/bottles")
@@ -73,6 +79,45 @@ def edit_bottle(bottle_id: int, b: Bottle, user_id: str = Depends(get_current_us
 def remove_bottle(bottle_id: int, user_id: str = Depends(get_current_user)):
     delete_bottle(bottle_id, user_id)
     return {"status": "ok"}
+
+@app.post("/bottles/{bottle_id}/drink")
+def drink_bottle(bottle_id: int, entry: DrinkEntry, user_id: str = Depends(get_current_user)):
+    df = get_bottles(user_id)
+    matches = df[df["id"] == bottle_id]
+    if matches.empty:
+        raise HTTPException(status_code=404, detail="Bottle not found")
+    bottle = matches.iloc[0]
+    if entry.quantity > int(bottle["quantity"]):
+        raise HTTPException(status_code=400, detail="Not enough bottles in stock")
+    new_qty = int(bottle["quantity"]) - entry.quantity
+    if new_qty == 0:
+        delete_bottle(bottle_id, user_id)
+    else:
+        update_bottle(
+            bottle_id,
+            bottle["winery"], bottle["wine_name"], bottle["region"], bottle["appellation"],
+            bottle["varietal"], bottle["vintage"], new_qty,
+            bottle["drink_from"], bottle["drink_by"],
+            bottle["your_notes"], bottle["your_rating"], bottle["expert_notes"],
+            user_id, bottle["purchase_price"] if not math.isnan(bottle["purchase_price"] or float('nan')) else None,
+        )
+    log_consumption(
+        bottle_id, bottle["winery"], bottle["wine_name"], bottle["vintage"],
+        bottle["varietal"], bottle["region"],
+        entry.quantity, entry.consumed_on, entry.notes, user_id,
+    )
+    return {"status": "ok", "remaining": new_qty}
+
+@app.get("/log")
+def consumption_log(user_id: str = Depends(get_current_user)):
+    df = get_consumption_log(user_id)
+    records = df.to_dict(orient="records")
+    return [
+        {k: (None if isinstance(v, float) and math.isnan(v) else
+             v.isoformat() if hasattr(v, 'isoformat') else v)
+         for k, v in row.items()}
+        for row in records
+    ]
 
 # ── AI ────────────────────────────────────────────────────────────────────────
 

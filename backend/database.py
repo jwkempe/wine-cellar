@@ -35,7 +35,22 @@ def init_db():
             purchase_price REAL
         )
     ''')
-    # Migration: add user_id to existing tables that predate this column
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS consumption_log (
+            id SERIAL PRIMARY KEY,
+            bottle_id INTEGER,
+            winery TEXT,
+            wine_name TEXT,
+            vintage INTEGER,
+            varietal TEXT,
+            region TEXT,
+            quantity INTEGER DEFAULT 1,
+            consumed_on DATE,
+            notes TEXT,
+            user_id TEXT
+        )
+    ''')
+    # Migrations
     c.execute('ALTER TABLE bottles ADD COLUMN IF NOT EXISTS user_id TEXT')
     c.execute('ALTER TABLE bottles ADD COLUMN IF NOT EXISTS purchase_price REAL')
     conn.commit()
@@ -90,6 +105,37 @@ def update_bottle(id, winery, wine_name, region, appellation, varietal, vintage,
           drink_from, drink_by, your_notes, your_rating, expert_notes, purchase_price, id, user_id))
     conn.commit()
     conn.close()
+
+
+def log_consumption(bottle_id, winery, wine_name, vintage, varietal, region,
+                    quantity, consumed_on, notes, user_id=None):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO consumption_log
+            (bottle_id, winery, wine_name, vintage, varietal, region,
+             quantity, consumed_on, notes, user_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ''', (bottle_id, winery, wine_name, vintage, varietal, region,
+          quantity, consumed_on, notes, user_id))
+    conn.commit()
+    conn.close()
+
+
+def get_consumption_log(user_id: str | None = None) -> pd.DataFrame:
+    conn = psycopg2.connect(DATABASE_URL)
+    if user_id:
+        df = pd.read_sql_query(
+            "SELECT * FROM consumption_log WHERE user_id = %s ORDER BY consumed_on DESC, id DESC",
+            conn,
+            params=(user_id,),
+        )
+    else:
+        df = pd.read_sql_query(
+            "SELECT * FROM consumption_log ORDER BY consumed_on DESC, id DESC", conn
+        )
+    conn.close()
+    return df
 
 
 def delete_bottle(id, user_id=None):
