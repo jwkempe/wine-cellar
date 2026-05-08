@@ -9,6 +9,7 @@ const links = [
   { href: '/', label: 'My Cellar' },
   { href: '/add', label: 'Add a Bottle' },
   { href: '/ready', label: 'Ready to Drink' },
+  { href: '/log', label: 'Drink Log' },
   { href: '/pairings', label: 'Food Pairings' },
   { href: '/recommendations', label: 'Recommendations' },
 ]
