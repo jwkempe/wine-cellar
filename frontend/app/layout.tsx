@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { GeistSans } from 'geist/font/sans'
+import { Analytics } from '@vercel/analytics/next'
 import Nav from './components/Nav'
 import './globals.css'
 import { api } from '@/lib/api'
@@ -61,6 +62,7 @@ export default function RootLayout({
           <QueryClientProvider client={queryClient}>
             <AppShell>{children}</AppShell>
           </QueryClientProvider>
+          <Analytics />
         </body>
       </html>
     </ClerkProvider>
