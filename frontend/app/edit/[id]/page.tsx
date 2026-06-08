@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getBottles, updateBottle, deleteBottle, drinkBottle, BottleInput } from '@/lib/api'
+import { getBottles, updateBottle, deleteBottle, drinkBottle, lookupWine, BottleInput } from '@/lib/api'
 import { useRouter, useParams } from 'next/navigation'
 
 export default function EditBottle() {
@@ -25,6 +25,8 @@ export default function EditBottle() {
   const [drinkDate, setDrinkDate] = useState(new Date().toISOString().slice(0, 10))
   const [drinkNotes, setDrinkNotes] = useState('')
   const [drinkSuccess, setDrinkSuccess] = useState(false)
+  const [lookingUp, setLookingUp] = useState(false)
+  const [lookupError, setLookupError] = useState<string | null>(null)
 
   useEffect(() => {
     if (bottle) {
@@ -62,6 +64,32 @@ export default function EditBottle() {
 
   function set(field: keyof BottleInput, value: any) {
     setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  async function handleLookup() {
+    if (!form.winery || !form.varietal || !form.region) return
+    setLookingUp(true)
+    setLookupError(null)
+    try {
+      const params: Record<string, string> = {
+        winery: form.winery,
+        varietal: form.varietal,
+        region: form.region,
+      }
+      if (form.vintage) params.vintage = String(form.vintage)
+      if (form.appellation) params.appellation = form.appellation
+      const data = await lookupWine(params)
+      const lines = data.result.split('\n')
+      for (const line of lines) {
+        if (line.startsWith('DRINK_FROM:')) set('drink_from', parseInt(line.replace('DRINK_FROM:', '').trim()))
+        if (line.startsWith('DRINK_BY:')) set('drink_by', parseInt(line.replace('DRINK_BY:', '').trim()))
+        if (line.startsWith('EXPERT_NOTES:')) set('expert_notes', line.replace('EXPERT_NOTES:', '').trim())
+      }
+    } catch {
+      setLookupError('Could not reach the sommelier. Please try again or fill in the details manually.')
+    } finally {
+      setLookingUp(false)
+    }
   }
 
   function handleSubmit() {
@@ -143,6 +171,20 @@ export default function EditBottle() {
 
       <div className="border-t border-[#2e2a25] pt-6 mt-6 mb-4">
         <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-4">Drink Window & Tasting Notes</p>
+        <button
+          onClick={handleLookup}
+          disabled={lookingUp || !form.winery || !form.varietal || !form.region}
+          className="text-sm border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded hover:bg-[#c9a84c]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed mb-1"
+        >
+          {lookingUp ? 'Consulting the sommelier...' : 'Lookup Drink Window & Tasting Notes'}
+        </button>
+        {(!form.winery || !form.varietal || !form.region) && (
+          <p className="text-xs text-[#f0ead8]/25 mb-4">Fill in Winery, Varietal, and Region to enable</p>
+        )}
+        {(form.winery && form.varietal && form.region) && <div className="mb-4" />}
+        {lookupError && (
+          <p className="text-red-400/70 text-sm mb-4">{lookupError}</p>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className={labelClass}>Drink From</label>

@@ -133,10 +133,14 @@ export default function AddBottle() {
         <button
           onClick={handleLookup}
           disabled={lookingUp || !form.winery || !form.varietal || !form.region}
-          className="text-sm border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded hover:bg-[#c9a84c]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed mb-4"
+          className="text-sm border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded hover:bg-[#c9a84c]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed mb-1"
         >
           {lookingUp ? 'Consulting the sommelier...' : 'Lookup Drink Window & Tasting Notes'}
         </button>
+        {(!form.winery || !form.varietal || !form.region) && (
+          <p className="text-xs text-[#f0ead8]/25 mb-4">Fill in Winery, Varietal, and Region to enable</p>
+        )}
+        {(form.winery && form.varietal && form.region) && <div className="mb-4" />}
 
         {lookupError && (
           <p className="text-red-400/70 text-sm mb-4">{lookupError}</p>
