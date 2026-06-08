@@ -122,7 +122,7 @@ def consumption_log(user_id: str = Depends(get_current_user)):
 # ── AI ────────────────────────────────────────────────────────────────────────
 
 @app.get("/ai/lookup")
-def wine_lookup(winery: str, varietal: str, region: str,
+def wine_lookup(winery: str, region: str, varietal: Optional[str] = None,
                 vintage: Optional[int] = None, appellation: Optional[str] = None,
                 user_id: str = Depends(get_current_user)):
     result = lookup_wine_info(winery, varietal, region, vintage, appellation)

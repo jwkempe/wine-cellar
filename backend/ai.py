@@ -51,9 +51,10 @@ Suggest 5 specific wines they might enjoy that aren't already in their list. Inc
     return message.content[0].text
 
 
-def lookup_wine_info(winery, varietal, region, vintage, appellation=None):
+def lookup_wine_info(winery, region, varietal=None, vintage=None, appellation=None):
     vintage_str = "Non-Vintage (NV)" if not vintage else str(int(vintage))
     appellation_str = appellation if appellation else "Not specified"
+    varietal_str = varietal if varietal else "Blend / Not specified"
 
     message = client.messages.create(
         model="claude-opus-4-6",
@@ -61,7 +62,7 @@ def lookup_wine_info(winery, varietal, region, vintage, appellation=None):
         messages=[{"role": "user", "content": f"""You are a world-class sommelier and wine expert. For this wine:
 
 Winery: {winery}
-Varietal: {varietal}
+Varietal: {varietal_str}
 Region: {region}
 Appellation: {appellation_str}
 Vintage: {vintage_str}
