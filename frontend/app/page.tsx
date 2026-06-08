@@ -27,7 +27,14 @@ const columns: { key: SortKey; label: string; className?: string }[] = [
 function sortBottles(bottles: Bottle[], key: SortKey, asc: boolean): Bottle[] {
   return [...bottles].sort((a, b) => {
     let av: any, bv: any
-    if (key === 'wine')     { av = a.winery ?? ''; bv = b.winery ?? '' }
+    if (key === 'wine') {
+      const aName = `${a.winery ?? ''} ${a.wine_name ?? ''}`.trim()
+      const bName = `${b.winery ?? ''} ${b.wine_name ?? ''}`.trim()
+      const nameCompare = asc ? aName.localeCompare(bName) : bName.localeCompare(aName)
+      if (nameCompare !== 0) return nameCompare
+      // Same winery+name: sort by vintage ascending
+      return (a.vintage ?? 0) - (b.vintage ?? 0)
+    }
     if (key === 'vintage')  { av = a.vintage ?? 0; bv = b.vintage ?? 0 }
     if (key === 'varietal') { av = a.varietal ?? ''; bv = b.varietal ?? '' }
     if (key === 'region')   { av = a.region ?? ''; bv = b.region ?? '' }
