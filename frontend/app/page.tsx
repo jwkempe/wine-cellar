@@ -24,25 +24,31 @@ const columns: { key: SortKey; label: string; className?: string }[] = [
   { key: 'rating',   label: 'Rating',   className: 'text-right hidden sm:table-cell' },
 ]
 
-function sortBottles(bottles: Bottle[], key: SortKey, asc: boolean): Bottle[] {
+function compareByKey(a: Bottle, b: Bottle, key: SortKey, asc: boolean): number {
+  let av: any, bv: any
+  if (key === 'wine') {
+    const aName = `${a.winery ?? ''} ${a.wine_name ?? ''}`.trim()
+    const bName = `${b.winery ?? ''} ${b.wine_name ?? ''}`.trim()
+    const nameCompare = asc ? aName.localeCompare(bName) : bName.localeCompare(aName)
+    if (nameCompare !== 0) return nameCompare
+    return (a.vintage ?? 0) - (b.vintage ?? 0)
+  }
+  if (key === 'vintage')  { av = a.vintage ?? 0; bv = b.vintage ?? 0 }
+  if (key === 'varietal') { av = a.varietal ?? ''; bv = b.varietal ?? '' }
+  if (key === 'region')   { av = a.region ?? ''; bv = b.region ?? '' }
+  if (key === 'quantity') { av = a.quantity; bv = b.quantity }
+  if (key === 'window')   { av = a.drink_from ?? 0; bv = b.drink_from ?? 0 }
+  if (key === 'rating')   { av = a.your_rating ?? 0; bv = b.your_rating ?? 0 }
+  if (typeof av === 'string') return asc ? av.localeCompare(bv) : bv.localeCompare(av)
+  return asc ? av - bv : bv - av
+}
+
+function sortBottles(bottles: Bottle[], primary: SortKey, primaryAsc: boolean, secondary: SortKey | null, secondaryAsc: boolean): Bottle[] {
   return [...bottles].sort((a, b) => {
-    let av: any, bv: any
-    if (key === 'wine') {
-      const aName = `${a.winery ?? ''} ${a.wine_name ?? ''}`.trim()
-      const bName = `${b.winery ?? ''} ${b.wine_name ?? ''}`.trim()
-      const nameCompare = asc ? aName.localeCompare(bName) : bName.localeCompare(aName)
-      if (nameCompare !== 0) return nameCompare
-      // Same winery+name: sort by vintage ascending
-      return (a.vintage ?? 0) - (b.vintage ?? 0)
-    }
-    if (key === 'vintage')  { av = a.vintage ?? 0; bv = b.vintage ?? 0 }
-    if (key === 'varietal') { av = a.varietal ?? ''; bv = b.varietal ?? '' }
-    if (key === 'region')   { av = a.region ?? ''; bv = b.region ?? '' }
-    if (key === 'quantity') { av = a.quantity; bv = b.quantity }
-    if (key === 'window')   { av = a.drink_from ?? 0; bv = b.drink_from ?? 0 }
-    if (key === 'rating')   { av = a.your_rating ?? 0; bv = b.your_rating ?? 0 }
-    if (typeof av === 'string') return asc ? av.localeCompare(bv) : bv.localeCompare(av)
-    return asc ? av - bv : bv - av
+    const primaryResult = compareByKey(a, b, primary, primaryAsc)
+    if (primaryResult !== 0) return primaryResult
+    if (secondary && secondary !== primary) return compareByKey(a, b, secondary, secondaryAsc)
+    return 0
   })
 }
 
@@ -56,10 +62,18 @@ export default function Home() {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('wine')
   const [sortAsc, setSortAsc] = useState(true)
+  const [secondaryKey, setSecondaryKey] = useState<SortKey | null>(null)
+  const [secondaryAsc, setSecondaryAsc] = useState(true)
 
   function handleSort(key: SortKey) {
-    if (key === sortKey) setSortAsc(a => !a)
-    else { setSortKey(key); setSortAsc(key === 'rating' || key === 'quantity' ? false : true) }
+    if (key === sortKey) {
+      setSortAsc(a => !a)
+    } else {
+      setSecondaryKey(sortKey)
+      setSecondaryAsc(sortAsc)
+      setSortKey(key)
+      setSortAsc(key === 'rating' || key === 'quantity' ? false : true)
+    }
   }
 
   const filtered = useMemo(() => {
@@ -70,8 +84,8 @@ export default function Home() {
           [b.winery, b.wine_name, b.varietal, b.region].some(v => v?.toLowerCase().includes(q))
         )
       : bottles
-    return sortBottles(results, sortKey, sortAsc)
-  }, [bottles, search, sortKey, sortAsc])
+    return sortBottles(results, sortKey, sortAsc, secondaryKey, secondaryAsc)
+  }, [bottles, search, sortKey, sortAsc, secondaryKey, secondaryAsc])
 
   if (isLoading) return <p className="text-[#f0ead8]/40 text-sm">Loading your cellar...</p>
   if (isError) return <p className="text-red-400/70 text-sm">Could not load your cellar. Please check your connection and refresh.</p>
