@@ -75,6 +75,7 @@ export default function EditBottle() {
         winery: form.winery,
         region: form.region,
       }
+      if (form.wine_name) params.wine_name = form.wine_name
       if (form.varietal) params.varietal = form.varietal
       if (form.vintage) params.vintage = String(form.vintage)
       if (form.appellation) params.appellation = form.appellation
