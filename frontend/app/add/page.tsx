@@ -30,15 +30,15 @@ export default function AddBottle() {
   }
 
   async function handleLookup() {
-    if (!form.winery || !form.varietal || !form.region) return
+    if (!form.winery || !form.region) return
     setLookingUp(true)
     setLookupError(null)
     try {
       const params: Record<string, string> = {
         winery: form.winery,
-        varietal: form.varietal,
         region: form.region,
       }
+      if (form.varietal) params.varietal = form.varietal
       if (form.vintage) params.vintage = String(form.vintage)
       if (form.appellation) params.appellation = form.appellation
       const data = await lookupWine(params)
@@ -132,15 +132,15 @@ export default function AddBottle() {
         <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-4">Drink Window & Tasting Notes</p>
         <button
           onClick={handleLookup}
-          disabled={lookingUp || !form.winery || !form.varietal || !form.region}
+          disabled={lookingUp || !form.winery || !form.region}
           className="text-sm border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded hover:bg-[#c9a84c]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed mb-1"
         >
           {lookingUp ? 'Consulting the sommelier...' : 'Lookup Drink Window & Tasting Notes'}
         </button>
-        {(!form.winery || !form.varietal || !form.region) && (
-          <p className="text-xs text-[#f0ead8]/25 mb-4">Fill in Winery, Varietal, and Region to enable</p>
+        {(!form.winery || !form.region) && (
+          <p className="text-xs text-[#f0ead8]/25 mb-4">Fill in Winery and Region to enable</p>
         )}
-        {(form.winery && form.varietal && form.region) && <div className="mb-4" />}
+        {(form.winery && form.region) && <div className="mb-4" />}
 
         {lookupError && (
           <p className="text-red-400/70 text-sm mb-4">{lookupError}</p>
