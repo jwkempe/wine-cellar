@@ -48,7 +48,8 @@ export default function AddBottle() {
         if (line.startsWith('DRINK_BY:')) set('drink_by', parseInt(line.replace('DRINK_BY:', '').trim()))
         if (line.startsWith('EXPERT_NOTES:')) set('expert_notes', line.replace('EXPERT_NOTES:', '').trim())
       }
-    } catch {
+    } catch (err: any) {
+      console.error('Lookup error:', err?.response?.status, err?.response?.data, err?.message)
       setLookupError('Could not reach the sommelier. Please try again or fill in the details manually.')
     } finally {
       setLookingUp(false)
