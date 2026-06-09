@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getBottles, getPairing } from '@/lib/api'
+import PageHeader from '../components/PageHeader'
 
 export default function FoodPairings() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
@@ -33,10 +34,7 @@ export default function FoodPairings() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-3xl font-light text-[#f0ead8] mb-1">
-        Food Pairings
-      </h1>
-      <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-8">Sommelier recommendations</p>
+      <PageHeader title="Food Pairings" subtitle="Sommelier recommendations" />
 
       {bottlesError && (
         <p className="text-red-400/70 text-sm mb-4">Could not load your bottles. Please refresh the page.</p>

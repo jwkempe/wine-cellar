@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getBottles, getRecommendations } from '@/lib/api'
+import PageHeader from '../components/PageHeader'
 
 export default function Recommendations() {
   const [result, setResult] = useState<string | null>(null)
@@ -29,10 +30,7 @@ export default function Recommendations() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-3xl font-light text-[#f0ead8] mb-1">
-        Recommendations
-      </h1>
-      <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-8">Curated for your palate</p>
+      <PageHeader title="Recommendations" subtitle="Curated for your palate" />
 
       {bottlesError && (
         <p className="text-red-400/70 text-sm mb-4">Could not load your bottles. Please refresh the page.</p>
@@ -43,7 +41,7 @@ export default function Recommendations() {
       ) : (
         <>
           <p className="text-[#f0ead8]/50 text-sm mb-6">
-            Based on your highest-rated bottles, our sommelier will suggest wines you're likely to love.
+            Based on your highest-rated bottles, our sommelier will suggest wines you&apos;re likely to love.
           </p>
           <button
             onClick={handleGenerate}

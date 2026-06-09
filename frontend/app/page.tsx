@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getBottles, Bottle } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import { useState, useMemo } from 'react'
+import PageHeader from './components/PageHeader'
 
 const currentYear = new Date().getFullYear()
 
@@ -25,7 +26,7 @@ const columns: { key: SortKey; label: string; className?: string }[] = [
 ]
 
 function compareByKey(a: Bottle, b: Bottle, key: SortKey, asc: boolean): number {
-  let av: any, bv: any
+  let av: string | number = 0, bv: string | number = 0
   if (key === 'wine') {
     const aName = `${a.winery ?? ''} ${a.wine_name ?? ''}`.trim()
     const bName = `${b.winery ?? ''} ${b.wine_name ?? ''}`.trim()
@@ -39,8 +40,10 @@ function compareByKey(a: Bottle, b: Bottle, key: SortKey, asc: boolean): number 
   if (key === 'quantity') { av = a.quantity; bv = b.quantity }
   if (key === 'window')   { av = a.drink_from ?? 0; bv = b.drink_from ?? 0 }
   if (key === 'rating')   { av = a.your_rating ?? 0; bv = b.your_rating ?? 0 }
-  if (typeof av === 'string') return asc ? av.localeCompare(bv) : bv.localeCompare(av)
-  return asc ? av - bv : bv - av
+  if (typeof av === 'string' && typeof bv === 'string') {
+    return asc ? av.localeCompare(bv) : bv.localeCompare(av)
+  }
+  return asc ? (av as number) - (bv as number) : (bv as number) - (av as number)
 }
 
 function sortBottles(bottles: Bottle[], primary: SortKey, primaryAsc: boolean, secondary: SortKey | null, secondaryAsc: boolean): Bottle[] {
@@ -102,8 +105,7 @@ export default function Home() {
 
   return (
     <div className="min-w-0">
-      <h1 className="text-2xl font-semibold text-[#f0ead8] mb-1 tracking-tight">My Cellar</h1>
-      <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-6">Collection Overview</p>
+      <PageHeader title="My Cellar" subtitle="Collection Overview" />
 
       {/* Stats */}
       <div className="flex gap-6 mb-8 text-sm">

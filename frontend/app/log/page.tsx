@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { getLog, LogEntry } from '@/lib/api'
+import PageHeader from '../components/PageHeader'
 
 function formatDate(dateStr: string | null) {
   if (!dateStr) return '—'
@@ -20,8 +21,7 @@ export default function DrinkLog() {
 
   return (
     <div className="min-w-0">
-      <h1 className="text-2xl font-semibold text-[#f0ead8] mb-1 tracking-tight">Drink Log</h1>
-      <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-6">Bottles consumed</p>
+      <PageHeader title="Drink Log" subtitle="Bottles consumed" />
 
       {!log?.length ? (
         <p className="text-[#f0ead8]/40 text-sm">No bottles logged yet. Open a bottle and record it from the edit page.</p>
