@@ -22,36 +22,73 @@ def _get_pool() -> ThreadedConnectionPool:
 
     Building the pool on first use (rather than at import) keeps imports cheap
     and avoids needing DATABASE_URL until a request actually hits the database.
+    TCP keepalives reduce how often managed Postgres drops idle connections.
     """
     global _pool
     if _pool is None:
         _pool = ThreadedConnectionPool(
             minconn=1,
-            maxconn=10,
+            maxconn=20,
             dsn=DATABASE_URL,
             cursor_factory=RealDictCursor,
+            keepalives=1,
+            keepalives_idle=30,
+            keepalives_interval=10,
+            keepalives_count=3,
         )
     return _pool
 
 
+def _checkout(pool: ThreadedConnectionPool):
+    """Return a live pooled connection, recycling any the server has dropped.
+
+    Managed Postgres and the network in between close idle connections, so a
+    pooled handle can be dead by the time we reuse it. Ping each candidate with
+    a trivial query and discard dead ones (``close=True``) rather than letting
+    the request fail with a 500.
+    """
+    last_err: Exception | None = None
+    for _ in range(pool.maxconn + 1):
+        conn = pool.getconn()
+        try:
+            if conn.closed:
+                raise psycopg2.OperationalError("connection already closed")
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+            conn.rollback()
+            return conn
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
+            last_err = e
+            pool.putconn(conn, close=True)
+    raise psycopg2.OperationalError("no live database connection available") from last_err
+
+
 @contextmanager
 def get_cursor(commit: bool = False):
-    """Borrow a pooled connection and yield a cursor.
+    """Borrow a live pooled connection and yield a cursor.
 
-    Commits on clean exit when ``commit`` is True; always rolls back on error
-    and returns the connection to the pool.
+    Commits on clean exit when ``commit`` is True (otherwise rolls back, so a
+    read never leaves an idle-in-transaction connection in the pool). A
+    connection that breaks mid-request is closed rather than returned, so the
+    pool replaces it instead of handing the dead handle to the next caller.
     """
     pool = _get_pool()
-    conn = pool.getconn()
+    conn = _checkout(pool)
     try:
         with conn.cursor() as cur:
             yield cur
         if commit:
             conn.commit()
+        else:
+            conn.rollback()
+    except (psycopg2.OperationalError, psycopg2.InterfaceError):
+        pool.putconn(conn, close=True)
+        raise
     except Exception:
         conn.rollback()
+        pool.putconn(conn)
         raise
-    finally:
+    else:
         pool.putconn(conn)
 
 
