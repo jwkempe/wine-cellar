@@ -146,7 +146,7 @@ def food_pairing(bottle_id: int, user_id: str = Depends(get_current_user)):
 def meal_pairing(meal: str, user_id: str = Depends(get_current_user)):
     df = get_bottles(user_id)
     result = get_wine_for_meal(meal, df)
-    return {"result": result}
+    return result
 
 @app.get("/ai/recommendations")
 def recommendations(user_id: str = Depends(get_current_user)):

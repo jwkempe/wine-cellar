@@ -52,9 +52,9 @@ Suggest 5 specific wines they might enjoy that aren't already in their list. Inc
     return message.content[0].text
 
 
-def get_wine_for_meal(meal: str, df) -> str:
+def get_wine_for_meal(meal: str, df) -> dict:
     if df.empty:
-        return "No bottles in your cellar yet."
+        return {"pairings": "No bottles in your cellar yet.", "gaps": None}
 
     bottle_list = "\n".join([
         f"- ID {int(row['id'])}: {'' if pd.isna(row['vintage']) else str(int(row['vintage']))} {row['winery']}"
@@ -65,7 +65,7 @@ def get_wine_for_meal(meal: str, df) -> str:
 
     message = client.messages.create(
         model="claude-opus-4-6",
-        max_tokens=1024,
+        max_tokens=1536,
         messages=[{"role": "user", "content": f"""You are a world-class sommelier. A collector is having this meal:
 
 {meal}
@@ -73,9 +73,18 @@ def get_wine_for_meal(meal: str, df) -> str:
 Here are the bottles currently in their cellar:
 {bottle_list}
 
-Recommend the 3 best bottles from this list for the meal. For each, explain briefly why it pairs well. If fewer than 3 are a good match, say so honestly. Be concise and specific."""}]
+Respond in exactly two sections separated by "---GAPS---":
+
+SECTION 1 (before ---GAPS---): Recommend the 3 best bottles from the list for the meal. For each, explain briefly why it pairs well. If fewer than 3 are a good match, say so honestly. If nothing is a great fit, say so clearly.
+
+SECTION 2 (after ---GAPS---): Identify 1-3 wine styles or specific bottles NOT in the cellar that would be ideal for this meal. Be specific (e.g. "white Burgundy" or "Sancerre" rather than just "white wine"). If the cellar already has excellent options, say so and keep this section brief. Be concise throughout."""}]
     )
-    return message.content[0].text
+
+    text = message.content[0].text
+    if "---GAPS---" in text:
+        pairings, gaps = text.split("---GAPS---", 1)
+        return {"pairings": pairings.strip(), "gaps": gaps.strip()}
+    return {"pairings": text.strip(), "gaps": None}
 
 
 def lookup_wine_info(winery, region, wine_name=None, varietal=None, vintage=None, appellation=None):

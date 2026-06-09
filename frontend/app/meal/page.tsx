@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { getMealPairing } from '@/lib/api'
+import { getMealPairing, MealPairingResult } from '@/lib/api'
 
 export default function WhatsForDinner() {
   const [meal, setMeal] = useState('')
-  const [result, setResult] = useState<string | null>(null)
+  const [result, setResult] = useState<MealPairingResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -15,7 +15,7 @@ export default function WhatsForDinner() {
     setError(null)
     try {
       const data = await getMealPairing(meal.trim())
-      setResult(data.result)
+      setResult(data)
     } catch {
       setError('Could not get pairing suggestions. Please try again.')
     } finally {
@@ -55,9 +55,18 @@ export default function WhatsForDinner() {
       {error && <p className="text-red-400/70 text-sm mb-4">{error}</p>}
 
       {result && (
-        <div className="border border-[#2e2a25] rounded p-6 bg-[#161412]">
-          <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-4">Recommended from your cellar</p>
-          <p className="text-[#f0ead8]/70 text-sm leading-relaxed whitespace-pre-wrap">{result}</p>
+        <div className="flex flex-col gap-4">
+          <div className="border border-[#2e2a25] rounded p-6 bg-[#161412]">
+            <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-4">From your cellar</p>
+            <p className="text-[#f0ead8]/70 text-sm leading-relaxed whitespace-pre-wrap">{result.pairings}</p>
+          </div>
+
+          {result.gaps && (
+            <div className="border border-[#7a3a3a]/40 rounded p-6 bg-[#161412]">
+              <p className="text-xs text-[#c47a7a]/60 tracking-widest uppercase mb-4">Gaps in your cellar</p>
+              <p className="text-[#f0ead8]/70 text-sm leading-relaxed whitespace-pre-wrap">{result.gaps}</p>
+            </div>
+          )}
         </div>
       )}
     </div>

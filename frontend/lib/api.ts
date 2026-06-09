@@ -51,4 +51,5 @@ export const getLog = () => api.get<LogEntry[]>('/log').then(r => r.data)
 export const getPairing = (id: number) => api.get(`/ai/pairing/${id}`).then(r => r.data)
 export const getRecommendations = () => api.get('/ai/recommendations').then(r => r.data)
 export const lookupWine = (params: Record<string, string>) => api.get('/ai/lookup', { params }).then(r => r.data)
-export const getMealPairing = (meal: string) => api.get('/ai/meal-pairing', { params: { meal } }).then(r => r.data)
+export type MealPairingResult = { pairings: string; gaps: string | null }
+export const getMealPairing = (meal: string) => api.get<MealPairingResult>('/ai/meal-pairing', { params: { meal } }).then(r => r.data)
