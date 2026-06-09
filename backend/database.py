@@ -137,7 +137,7 @@ def init_db() -> None:
 
 
 def add_bottle(winery, wine_name, region, appellation, varietal, vintage, quantity,
-               drink_from, drink_by, your_notes, your_rating, expert_notes, user_id=None,
+               drink_from, drink_by, your_notes, your_rating, expert_notes, user_id,
                purchase_price=None) -> None:
     with get_cursor(commit=True) as c:
         c.execute('''
@@ -149,52 +149,64 @@ def add_bottle(winery, wine_name, region, appellation, varietal, vintage, quanti
               drink_from, drink_by, your_notes, your_rating, expert_notes, user_id, purchase_price))
 
 
-def get_bottles(user_id: str | None = None) -> list[dict[str, Any]]:
+def get_bottles(user_id: str) -> list[dict[str, Any]]:
     with get_cursor() as c:
-        if user_id:
-            c.execute("SELECT * FROM bottles WHERE user_id = %s ORDER BY id", (user_id,))
-        else:
-            c.execute("SELECT * FROM bottles ORDER BY id")
+        c.execute("SELECT * FROM bottles WHERE user_id = %s ORDER BY id", (user_id,))
         return [dict(row) for row in c.fetchall()]
 
 
-def get_bottle(bottle_id: int, user_id: str | None = None) -> dict[str, Any] | None:
+def get_bottle(bottle_id: int, user_id: str) -> dict[str, Any] | None:
     with get_cursor() as c:
-        if user_id:
-            c.execute(
-                "SELECT * FROM bottles WHERE id = %s AND (user_id = %s OR user_id IS NULL)",
-                (bottle_id, user_id),
-            )
-        else:
-            c.execute("SELECT * FROM bottles WHERE id = %s", (bottle_id,))
+        c.execute(
+            "SELECT * FROM bottles WHERE id = %s AND user_id = %s",
+            (bottle_id, user_id),
+        )
         row = c.fetchone()
         return dict(row) if row else None
 
 
 def update_bottle(id, winery, wine_name, region, appellation, varietal, vintage,
                   quantity, drink_from, drink_by, your_notes, your_rating,
-                  expert_notes, user_id=None, purchase_price=None) -> None:
+                  expert_notes, user_id, purchase_price=None) -> None:
     with get_cursor(commit=True) as c:
         c.execute('''
             UPDATE bottles SET
                 winery=%s, wine_name=%s, region=%s, appellation=%s, varietal=%s, vintage=%s,
                 quantity=%s, drink_from=%s, drink_by=%s, your_notes=%s,
                 your_rating=%s, expert_notes=%s, purchase_price=%s
-            WHERE id=%s AND (user_id=%s OR user_id IS NULL)
+            WHERE id=%s AND user_id=%s
         ''', (winery, wine_name, region, appellation, varietal, vintage, quantity,
               drink_from, drink_by, your_notes, your_rating, expert_notes, purchase_price, id, user_id))
 
 
-def delete_bottle(id, user_id=None) -> None:
+def decrement_bottle(bottle_id: int, user_id: str, amount: int) -> int | None:
+    """Atomically take ``amount`` bottles out of stock.
+
+    Returns the remaining quantity, or None if the bottle doesn't exist (for
+    this user) or doesn't have enough stock. The conditional UPDATE makes the
+    check-and-decrement a single statement, so concurrent drinks can't both
+    pass a read-then-write check and oversubtract.
+    """
+    with get_cursor(commit=True) as c:
+        c.execute('''
+            UPDATE bottles SET quantity = quantity - %s
+            WHERE id = %s AND user_id = %s AND quantity >= %s
+            RETURNING quantity
+        ''', (amount, bottle_id, user_id, amount))
+        row = c.fetchone()
+        return row["quantity"] if row else None
+
+
+def delete_bottle(id, user_id) -> None:
     with get_cursor(commit=True) as c:
         c.execute(
-            "DELETE FROM bottles WHERE id=%s AND (user_id=%s OR user_id IS NULL)",
+            "DELETE FROM bottles WHERE id=%s AND user_id=%s",
             (id, user_id),
         )
 
 
 def log_consumption(bottle_id, winery, wine_name, vintage, varietal, region,
-                    quantity, consumed_on, notes, user_id=None) -> None:
+                    quantity, consumed_on, notes, user_id) -> None:
     with get_cursor(commit=True) as c:
         c.execute('''
             INSERT INTO consumption_log
@@ -205,14 +217,11 @@ def log_consumption(bottle_id, winery, wine_name, vintage, varietal, region,
               quantity, consumed_on, notes, user_id))
 
 
-def get_consumption_log(user_id: str | None = None) -> list[dict[str, Any]]:
+def get_consumption_log(user_id: str) -> list[dict[str, Any]]:
     with get_cursor() as c:
-        if user_id:
-            c.execute(
-                "SELECT * FROM consumption_log WHERE user_id = %s "
-                "ORDER BY consumed_on DESC, id DESC",
-                (user_id,),
-            )
-        else:
-            c.execute("SELECT * FROM consumption_log ORDER BY consumed_on DESC, id DESC")
+        c.execute(
+            "SELECT * FROM consumption_log WHERE user_id = %s "
+            "ORDER BY consumed_on DESC, id DESC",
+            (user_id,),
+        )
         return [dict(row) for row in c.fetchall()]

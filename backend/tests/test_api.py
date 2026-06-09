@@ -1,0 +1,118 @@
+"""API surface tests with the database layer mocked out."""
+
+import main
+from tests.conftest import TEST_USER
+
+SAMPLE_ROW = {
+    "id": 1,
+    "winery": "Ridge",
+    "wine_name": "Monte Bello",
+    "region": "Santa Cruz Mountains",
+    "appellation": None,
+    "varietal": "Cabernet Sauvignon",
+    "vintage": 2018,
+    "quantity": 3,
+    "drink_from": 2026,
+    "drink_by": 2040,
+    "your_notes": None,
+    "your_rating": 95.0,
+    "expert_notes": None,
+    "user_id": TEST_USER,
+    "purchase_price": 120.0,
+}
+
+
+def test_unauthenticated_request_rejected(anon_client):
+    assert anon_client.get("/bottles").status_code in (401, 403)
+
+
+def test_list_bottles_filters_user_id(client, monkeypatch):
+    monkeypatch.setattr(main, "get_bottles", lambda user_id: [dict(SAMPLE_ROW)])
+    res = client.get("/bottles")
+    assert res.status_code == 200
+    [bottle] = res.json()
+    assert bottle["winery"] == "Ridge"
+    assert "user_id" not in bottle  # response model must not leak ownership ids
+
+
+def test_create_bottle_passes_user(client, monkeypatch):
+    calls = []
+    monkeypatch.setattr(main, "add_bottle", lambda *a, **k: calls.append(a))
+    res = client.post("/bottles", json={"winery": "Ridge", "region": "SCM", "varietal": "Cab"})
+    assert res.status_code == 200
+    assert calls and TEST_USER in calls[0]
+
+
+def test_create_bottle_rejects_blank_winery(client):
+    res = client.post("/bottles", json={"winery": "", "region": "SCM", "varietal": "Cab"})
+    assert res.status_code == 422
+
+
+def test_create_bottle_rejects_out_of_range_values(client):
+    base = {"winery": "Ridge", "region": "SCM", "varietal": "Cab"}
+    assert client.post("/bottles", json={**base, "quantity": -1}).status_code == 422
+    assert client.post("/bottles", json={**base, "your_rating": 101}).status_code == 422
+    assert client.post("/bottles", json={**base, "vintage": 20180}).status_code == 422
+
+
+def test_drink_404_when_bottle_missing(client, monkeypatch):
+    monkeypatch.setattr(main, "get_bottle", lambda *a: None)
+    res = client.post("/bottles/1/drink", json={"quantity": 1, "consumed_on": "2026-06-09"})
+    assert res.status_code == 404
+
+
+def test_drink_400_when_insufficient_stock(client, monkeypatch):
+    monkeypatch.setattr(main, "get_bottle", lambda *a: dict(SAMPLE_ROW))
+    monkeypatch.setattr(main, "decrement_bottle", lambda *a: None)
+    res = client.post("/bottles/1/drink", json={"quantity": 5, "consumed_on": "2026-06-09"})
+    assert res.status_code == 400
+
+
+def test_drink_logs_and_keeps_bottle_when_stock_remains(client, monkeypatch):
+    logged, deleted = [], []
+    monkeypatch.setattr(main, "get_bottle", lambda *a: dict(SAMPLE_ROW))
+    monkeypatch.setattr(main, "decrement_bottle", lambda *a: 2)
+    monkeypatch.setattr(main, "delete_bottle", lambda *a: deleted.append(a))
+    monkeypatch.setattr(main, "log_consumption", lambda *a: logged.append(a))
+    res = client.post("/bottles/1/drink", json={"quantity": 1, "consumed_on": "2026-06-09"})
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok", "remaining": 2}
+    assert logged and not deleted
+
+
+def test_drink_deletes_bottle_at_zero(client, monkeypatch):
+    deleted = []
+    monkeypatch.setattr(main, "get_bottle", lambda *a: dict(SAMPLE_ROW))
+    monkeypatch.setattr(main, "decrement_bottle", lambda *a: 0)
+    monkeypatch.setattr(main, "delete_bottle", lambda *a: deleted.append(a))
+    monkeypatch.setattr(main, "log_consumption", lambda *a: None)
+    res = client.post("/bottles/1/drink", json={"quantity": 3, "consumed_on": "2026-06-09"})
+    assert res.status_code == 200
+    assert deleted
+
+
+def test_drink_rejects_zero_quantity(client):
+    res = client.post("/bottles/1/drink", json={"quantity": 0, "consumed_on": "2026-06-09"})
+    assert res.status_code == 422
+
+
+def test_ai_rate_limit_trips(client, monkeypatch):
+    main._ai_calls.clear()
+    monkeypatch.setattr(main, "get_bottle", lambda *a: None)  # 404s, but each call counts
+    for _ in range(main.AI_RATE_LIMIT_PER_MINUTE):
+        assert client.get("/ai/pairing/1").status_code == 404
+    assert client.get("/ai/pairing/1").status_code == 429
+    main._ai_calls.clear()
+
+
+def test_sse_framing_and_error_event():
+    frames = list(main._sse_events(iter(["Hello", " world\n", ""])))
+    assert frames == ['data: "Hello"\n\n', 'data: " world\\n"\n\n']
+
+    def boom():
+        yield "partial"
+        raise RuntimeError("api fell over")
+
+    frames = list(main._sse_events(boom()))
+    assert frames[0] == 'data: "partial"\n\n'
+    assert frames[1].startswith("event: error\n")

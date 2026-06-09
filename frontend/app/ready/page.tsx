@@ -2,10 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { getBottles } from '@/lib/api'
+import { isReady } from '@/lib/wine'
 import Link from 'next/link'
 import PageHeader from '../components/PageHeader'
-
-const currentYear = new Date().getFullYear()
 
 export default function ReadyToDrink() {
   const { data: bottles, isLoading, isError } = useQuery({
@@ -16,10 +15,7 @@ export default function ReadyToDrink() {
   if (isLoading) return <p className="text-[#f0ead8]/40">Loading...</p>
   if (isError) return <p className="text-red-400/70 text-sm">Could not load your cellar. Please refresh the page.</p>
 
-  const ready = bottles?.filter(b =>
-    b.drink_from !== null && b.drink_by !== null &&
-    currentYear >= b.drink_from && currentYear <= b.drink_by
-  ) ?? []
+  const ready = bottles?.filter(isReady) ?? []
 
   return (
     <div>

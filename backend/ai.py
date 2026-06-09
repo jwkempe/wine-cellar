@@ -6,7 +6,8 @@ import anthropic
 from dotenv import load_dotenv
 load_dotenv()
 
-MODEL = "claude-opus-4-8"
+# Overridable so a model bump is a config change, not a deploy.
+MODEL = os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8")
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
