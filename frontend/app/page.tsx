@@ -2,16 +2,10 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { getBottles, Bottle } from '@/lib/api'
+import { isReady } from '@/lib/wine'
 import { useRouter } from 'next/navigation'
 import { useState, useMemo } from 'react'
 import PageHeader from './components/PageHeader'
-
-const currentYear = new Date().getFullYear()
-
-function isReady(bottle: Bottle) {
-  return bottle.drink_from !== null && bottle.drink_by !== null &&
-    currentYear >= bottle.drink_from && currentYear <= bottle.drink_by
-}
 
 type SortKey = 'wine' | 'vintage' | 'varietal' | 'region' | 'quantity' | 'window' | 'rating'
 

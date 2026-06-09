@@ -62,13 +62,16 @@ export default function BottleForm({
     }
   }
 
+  // Winery is the one required field (the backend enforces it too).
+  const canSubmit = !!form.winery?.trim()
+
   function handleSubmit() {
     onSubmit({
-      winery: form.winery || '',
-      wine_name: form.wine_name || null,
-      region: form.region || '',
-      appellation: form.appellation || null,
-      varietal: form.varietal || '',
+      winery: (form.winery ?? '').trim(),
+      wine_name: form.wine_name?.trim() || null,
+      region: (form.region ?? '').trim(),
+      appellation: form.appellation?.trim() || null,
+      varietal: (form.varietal ?? '').trim(),
       vintage: isNV ? null : (form.vintage ?? null),
       quantity: form.quantity ?? 1,
       drink_from: form.drink_from ?? null,
@@ -181,11 +184,15 @@ export default function BottleForm({
         <p className="text-red-400/70 text-sm mb-4">Failed to save the bottle. Please try again.</p>
       )}
 
+      {!canSubmit && (
+        <p className="text-xs text-[#f0ead8]/25 mb-3">Enter a winery to save this bottle</p>
+      )}
+
       <div className="flex gap-3">
         <button
           onClick={handleSubmit}
-          disabled={submitting}
-          className="bg-[#c9a84c]/20 border border-[#c9a84c]/40 text-[#c9a84c] px-6 py-2.5 rounded text-sm tracking-widest uppercase hover:bg-[#c9a84c]/30 transition-colors disabled:opacity-50"
+          disabled={submitting || !canSubmit}
+          className="bg-[#c9a84c]/20 border border-[#c9a84c]/40 text-[#c9a84c] px-6 py-2.5 rounded text-sm tracking-widest uppercase hover:bg-[#c9a84c]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? submittingLabel : submitLabel}
         </button>
