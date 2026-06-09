@@ -2,33 +2,18 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getBottles, getPairing } from '@/lib/api'
+import { getBottles } from '@/lib/api'
+import { useStreamingCompletion } from '@/lib/useStream'
 import PageHeader from '../components/PageHeader'
 
 export default function FoodPairings() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [pairing, setPairing] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { text, loading, error, run, reset } = useStreamingCompletion()
 
   const { data: bottles, isError: bottlesError } = useQuery({
     queryKey: ['bottles'],
     queryFn: getBottles,
   })
-
-  async function handleGetPairing() {
-    if (!selectedId) return
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await getPairing(selectedId)
-      setPairing(data.result)
-    } catch {
-      setError('Could not get pairing suggestions. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const selectClass = "w-full bg-[#0f0d0b] border border-[#2e2a25] rounded px-3 py-2 text-[#f0ead8] text-sm focus:outline-none focus:border-[#c9a84c]/50"
 
@@ -46,8 +31,7 @@ export default function FoodPairings() {
           value={selectedId ?? ''}
           onChange={e => {
             setSelectedId(parseInt(e.target.value))
-            setPairing(null)
-            setError(null)
+            reset()
           }}
         >
           <option value="">Select a bottle...</option>
@@ -60,7 +44,7 @@ export default function FoodPairings() {
       </div>
 
       <button
-        onClick={handleGetPairing}
+        onClick={() => selectedId && run(`/ai/pairing/${selectedId}`)}
         disabled={!selectedId || loading}
         className="text-sm border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded hover:bg-[#c9a84c]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed mb-4"
       >
@@ -69,10 +53,10 @@ export default function FoodPairings() {
 
       {error && <p className="text-red-400/70 text-sm mb-4">{error}</p>}
 
-      {pairing && (
+      {text && (
         <div className="border border-[#2e2a25] rounded p-6 bg-[#161412]">
           <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-4">Pairing Suggestions</p>
-          <p className="text-[#f0ead8]/70 text-sm leading-relaxed whitespace-pre-wrap">{pairing}</p>
+          <p className="text-[#f0ead8]/70 text-sm leading-relaxed whitespace-pre-wrap">{text}</p>
         </div>
       )}
     </div>
