@@ -11,6 +11,7 @@ const links = [
   { href: '/ready', label: 'Ready to Drink' },
   { href: '/log', label: 'Drink Log' },
   { href: '/pairings', label: 'Food Pairings' },
+  { href: '/meal', label: "What's for Dinner?" },
   { href: '/recommendations', label: 'Recommendations' },
 ]
 

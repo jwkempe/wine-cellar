@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from database import get_conn, get_bottles, add_bottle, update_bottle, delete_bottle, init_db, log_consumption, get_consumption_log
-from ai import get_pairing_suggestion, get_recommendations, lookup_wine_info
+from ai import get_pairing_suggestion, get_recommendations, lookup_wine_info, get_wine_for_meal
 from auth import get_current_user
 
 init_db()
@@ -140,6 +140,12 @@ def food_pairing(bottle_id: int, user_id: str = Depends(get_current_user)):
         bottle["winery"], bottle["varietal"], bottle["region"],
         bottle["vintage"], bottle["your_notes"], bottle["expert_notes"]
     )
+    return {"result": result}
+
+@app.get("/ai/meal-pairing")
+def meal_pairing(meal: str, user_id: str = Depends(get_current_user)):
+    df = get_bottles(user_id)
+    result = get_wine_for_meal(meal, df)
     return {"result": result}
 
 @app.get("/ai/recommendations")
