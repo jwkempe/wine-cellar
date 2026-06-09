@@ -53,3 +53,26 @@ export const getRecommendations = () => api.get('/ai/recommendations').then(r =>
 export const lookupWine = (params: Record<string, string>) => api.get('/ai/lookup', { params }).then(r => r.data)
 export type MealPairingResult = { pairings: string; gaps: string | null }
 export const getMealPairing = (meal: string) => api.get<MealPairingResult>('/ai/meal-pairing', { params: { meal } }).then(r => r.data)
+
+export type WineLookupFields = {
+  drink_from?: number
+  drink_by?: number
+  expert_notes?: string
+}
+
+// Parse the sommelier lookup response (DRINK_FROM / DRINK_BY / EXPERT_NOTES lines).
+export function parseLookupResult(result: string): WineLookupFields {
+  const fields: WineLookupFields = {}
+  for (const line of result.split('\n')) {
+    if (line.startsWith('DRINK_FROM:')) {
+      const year = parseInt(line.replace('DRINK_FROM:', '').trim())
+      if (!Number.isNaN(year)) fields.drink_from = year
+    } else if (line.startsWith('DRINK_BY:')) {
+      const year = parseInt(line.replace('DRINK_BY:', '').trim())
+      if (!Number.isNaN(year)) fields.drink_by = year
+    } else if (line.startsWith('EXPERT_NOTES:')) {
+      fields.expert_notes = line.replace('EXPERT_NOTES:', '').trim()
+    }
+  }
+  return fields
+}

@@ -53,7 +53,19 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const [queryClient] = useState(() => new QueryClient())
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        // Keep data fresh in cache so navigating between pages is instant
+        // instead of refetching the cellar on every visit. Mutations call
+        // invalidateQueries, so edits still show up immediately.
+        staleTime: 60_000,
+        gcTime: 5 * 60_000,
+        refetchOnWindowFocus: false,
+        retry: 1,
+      },
+    },
+  }))
 
   return (
     <ClerkProvider>

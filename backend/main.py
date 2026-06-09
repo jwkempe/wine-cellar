@@ -1,22 +1,29 @@
-import math
 import os
+from contextlib import asynccontextmanager
+from typing import Optional
 
-import pandas as pd
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
 
-from database import get_conn, get_bottles, add_bottle, update_bottle, delete_bottle, init_db, log_consumption, get_consumption_log
+from database import (
+    get_bottles, get_bottle, add_bottle, update_bottle, delete_bottle,
+    init_db, log_consumption, get_consumption_log,
+)
 from ai import get_pairing_suggestion, get_recommendations, lookup_wine_info, get_wine_for_meal
 from auth import get_current_user
 
-init_db()
-
 load_dotenv()
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -54,12 +61,7 @@ class DrinkEntry(BaseModel):
 
 @app.get("/bottles")
 def list_bottles(user_id: str = Depends(get_current_user)):
-    df = get_bottles(user_id)
-    records = df.to_dict(orient="records")
-    return [
-        {k: (None if isinstance(v, float) and math.isnan(v) else v) for k, v in row.items()}
-        for row in records
-    ]
+    return get_bottles(user_id)
 
 @app.post("/bottles")
 def create_bottle(b: Bottle, user_id: str = Depends(get_current_user)):
@@ -82,14 +84,12 @@ def remove_bottle(bottle_id: int, user_id: str = Depends(get_current_user)):
 
 @app.post("/bottles/{bottle_id}/drink")
 def drink_bottle(bottle_id: int, entry: DrinkEntry, user_id: str = Depends(get_current_user)):
-    df = get_bottles(user_id)
-    matches = df[df["id"] == bottle_id]
-    if matches.empty:
+    bottle = get_bottle(bottle_id, user_id)
+    if bottle is None:
         raise HTTPException(status_code=404, detail="Bottle not found")
-    bottle = matches.iloc[0]
-    if entry.quantity > int(bottle["quantity"]):
+    if entry.quantity > bottle["quantity"]:
         raise HTTPException(status_code=400, detail="Not enough bottles in stock")
-    new_qty = int(bottle["quantity"]) - entry.quantity
+    new_qty = bottle["quantity"] - entry.quantity
     if new_qty == 0:
         delete_bottle(bottle_id, user_id)
     else:
@@ -99,7 +99,7 @@ def drink_bottle(bottle_id: int, entry: DrinkEntry, user_id: str = Depends(get_c
             bottle["varietal"], bottle["vintage"], new_qty,
             bottle["drink_from"], bottle["drink_by"],
             bottle["your_notes"], bottle["your_rating"], bottle["expert_notes"],
-            user_id, bottle["purchase_price"] if not math.isnan(bottle["purchase_price"] or float('nan')) else None,
+            user_id, bottle["purchase_price"],
         )
     log_consumption(
         bottle_id, bottle["winery"], bottle["wine_name"], bottle["vintage"],
@@ -110,14 +110,7 @@ def drink_bottle(bottle_id: int, entry: DrinkEntry, user_id: str = Depends(get_c
 
 @app.get("/log")
 def consumption_log(user_id: str = Depends(get_current_user)):
-    df = get_consumption_log(user_id)
-    records = df.to_dict(orient="records")
-    return [
-        {k: (None if isinstance(v, float) and math.isnan(v) else
-             v.isoformat() if hasattr(v, 'isoformat') else v)
-         for k, v in row.items()}
-        for row in records
-    ]
+    return get_consumption_log(user_id)
 
 # ── AI ────────────────────────────────────────────────────────────────────────
 
@@ -131,11 +124,9 @@ def wine_lookup(winery: str, region: str, wine_name: Optional[str] = None,
 
 @app.get("/ai/pairing/{bottle_id}")
 def food_pairing(bottle_id: int, user_id: str = Depends(get_current_user)):
-    df = get_bottles(user_id)
-    matches = df[df["id"] == bottle_id]
-    if matches.empty:
+    bottle = get_bottle(bottle_id, user_id)
+    if bottle is None:
         raise HTTPException(status_code=404, detail="Bottle not found")
-    bottle = matches.iloc[0]
     result = get_pairing_suggestion(
         bottle["winery"], bottle["varietal"], bottle["region"],
         bottle["vintage"], bottle["your_notes"], bottle["expert_notes"]
@@ -144,12 +135,9 @@ def food_pairing(bottle_id: int, user_id: str = Depends(get_current_user)):
 
 @app.get("/ai/meal-pairing")
 def meal_pairing(meal: str, user_id: str = Depends(get_current_user)):
-    df = get_bottles(user_id)
-    result = get_wine_for_meal(meal, df)
-    return result
+    return get_wine_for_meal(meal, get_bottles(user_id))
 
 @app.get("/ai/recommendations")
 def recommendations(user_id: str = Depends(get_current_user)):
-    df = get_bottles(user_id)
-    result = get_recommendations(df)
+    result = get_recommendations(get_bottles(user_id))
     return {"result": result}

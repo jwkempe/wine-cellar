@@ -3,6 +3,7 @@
 :root {
   --background: #0f0d0b;
   --foreground: #f0ead8;
+  --accent: #c9a84c;
 }
 
 @theme inline {
@@ -12,7 +13,48 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Branded text selection */
+::selection {
+  background: rgba(201, 168, 76, 0.3);
+  color: #f0ead8;
+}
+
+/* Subtle, dark-themed scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2e2a25 transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2e2a25;
+  border-radius: 6px;
+  border: 2px solid var(--background);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3d3833;
+}
+
+/* Keyboard-only focus ring for accessibility, without disrupting mouse use */
+:focus-visible {
+  outline: 2px solid rgba(201, 168, 76, 0.5);
+  outline-offset: 2px;
+  border-radius: 2px;
 }

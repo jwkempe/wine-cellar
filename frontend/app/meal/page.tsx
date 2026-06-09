@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { getMealPairing, MealPairingResult } from '@/lib/api'
+import PageHeader from '../components/PageHeader'
 
 export default function WhatsForDinner() {
   const [meal, setMeal] = useState('')
@@ -25,10 +26,7 @@ export default function WhatsForDinner() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-3xl font-light text-[#f0ead8] mb-1">
-        What&apos;s for Dinner?
-      </h1>
-      <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-8">Find the right bottle for your meal</p>
+      <PageHeader title="What's for Dinner?" subtitle="Find the right bottle for your meal" />
 
       <div className="mb-4">
         <textarea

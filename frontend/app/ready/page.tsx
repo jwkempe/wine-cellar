@@ -1,8 +1,9 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { getBottles, Bottle } from '@/lib/api'
+import { getBottles } from '@/lib/api'
 import Link from 'next/link'
+import PageHeader from '../components/PageHeader'
 
 const currentYear = new Date().getFullYear()
 
@@ -22,10 +23,7 @@ export default function ReadyToDrink() {
 
   return (
     <div>
-      <h1 className="text-3xl font-light text-[#f0ead8] mb-1">
-        Ready to Drink
-      </h1>
-      <p className="text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-8">In their drinking window now</p>
+      <PageHeader title="Ready to Drink" subtitle="In their drinking window now" />
 
       {ready.length === 0 ? (
         <p className="text-[#f0ead8]/40">Nothing is currently in its drinking window.</p>
