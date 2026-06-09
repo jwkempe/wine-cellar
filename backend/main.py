@@ -1,4 +1,5 @@
 import os
+import json
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -19,12 +20,28 @@ from auth import get_current_user
 
 load_dotenv()
 
-# Headers that keep streamed responses from being buffered by proxies.
-_STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+# Server-Sent Events keep the response from being buffered before it reaches
+# JS: browsers never MIME-sniff or hold back text/event-stream, and
+# no-transform stops proxies (Railway's edge) from gzip-buffering the body.
+_SSE_HEADERS = {
+    "Cache-Control": "no-cache, no-transform",
+    "X-Accel-Buffering": "no",
+    "X-Content-Type-Options": "nosniff",
+}
 
 
-def _text_stream(chunks) -> StreamingResponse:
-    return StreamingResponse(chunks, media_type="text/plain; charset=utf-8", headers=_STREAM_HEADERS)
+def _sse_stream(chunks) -> StreamingResponse:
+    """Wrap a text-delta generator as an SSE response.
+
+    Each delta is JSON-encoded into one `data:` event so embedded newlines
+    survive the SSE framing intact.
+    """
+    def event_stream():
+        for chunk in chunks:
+            if chunk:
+                yield f"data: {json.dumps(chunk)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream", headers=_SSE_HEADERS)
 
 
 @asynccontextmanager
@@ -137,15 +154,15 @@ def food_pairing(bottle_id: int, user_id: str = Depends(get_current_user)):
     bottle = get_bottle(bottle_id, user_id)
     if bottle is None:
         raise HTTPException(status_code=404, detail="Bottle not found")
-    return _text_stream(stream_pairing(
+    return _sse_stream(stream_pairing(
         bottle["winery"], bottle["varietal"], bottle["region"],
         bottle["vintage"], bottle["your_notes"], bottle["expert_notes"],
     ))
 
 @app.get("/ai/meal-pairing")
 def meal_pairing(meal: str, user_id: str = Depends(get_current_user)):
-    return _text_stream(stream_wine_for_meal(meal, get_bottles(user_id)))
+    return _sse_stream(stream_wine_for_meal(meal, get_bottles(user_id)))
 
 @app.get("/ai/recommendations")
 def recommendations(user_id: str = Depends(get_current_user)):
-    return _text_stream(stream_recommendations(get_bottles(user_id)))
+    return _sse_stream(stream_recommendations(get_bottles(user_id)))
