@@ -1,5 +1,6 @@
 import anthropic
 import os
+import pandas as pd
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -47,6 +48,32 @@ def get_recommendations(df):
 {bottle_list}
 
 Suggest 5 specific wines they might enjoy that aren't already in their list. Include winery, varietal, region, and why they'd enjoy it based on their taste profile. Be specific and concise."""}]
+    )
+    return message.content[0].text
+
+
+def get_wine_for_meal(meal: str, df) -> str:
+    if df.empty:
+        return "No bottles in your cellar yet."
+
+    bottle_list = "\n".join([
+        f"- ID {int(row['id'])}: {'' if pd.isna(row['vintage']) else str(int(row['vintage']))} {row['winery']}"
+        f"{' ' + row['wine_name'] if row['wine_name'] and not pd.isna(row['wine_name']) else ''}"
+        f" — {row['varietal']}, {row['region']}"
+        for _, row in df.iterrows()
+    ])
+
+    message = client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": f"""You are a world-class sommelier. A collector is having this meal:
+
+{meal}
+
+Here are the bottles currently in their cellar:
+{bottle_list}
+
+Recommend the 3 best bottles from this list for the meal. For each, explain briefly why it pairs well. If fewer than 3 are a good match, say so honestly. Be concise and specific."""}]
     )
     return message.content[0].text
 
