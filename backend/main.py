@@ -5,16 +5,26 @@ from typing import Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from database import (
     get_bottles, get_bottle, add_bottle, update_bottle, delete_bottle,
     init_db, log_consumption, get_consumption_log,
 )
-from ai import get_pairing_suggestion, get_recommendations, lookup_wine_info, get_wine_for_meal
+from ai import (
+    lookup_wine_info, stream_pairing, stream_recommendations, stream_wine_for_meal,
+)
 from auth import get_current_user
 
 load_dotenv()
+
+# Headers that keep streamed responses from being buffered by proxies.
+_STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+
+
+def _text_stream(chunks) -> StreamingResponse:
+    return StreamingResponse(chunks, media_type="text/plain; charset=utf-8", headers=_STREAM_HEADERS)
 
 
 @asynccontextmanager
@@ -127,17 +137,15 @@ def food_pairing(bottle_id: int, user_id: str = Depends(get_current_user)):
     bottle = get_bottle(bottle_id, user_id)
     if bottle is None:
         raise HTTPException(status_code=404, detail="Bottle not found")
-    result = get_pairing_suggestion(
+    return _text_stream(stream_pairing(
         bottle["winery"], bottle["varietal"], bottle["region"],
-        bottle["vintage"], bottle["your_notes"], bottle["expert_notes"]
-    )
-    return {"result": result}
+        bottle["vintage"], bottle["your_notes"], bottle["expert_notes"],
+    ))
 
 @app.get("/ai/meal-pairing")
 def meal_pairing(meal: str, user_id: str = Depends(get_current_user)):
-    return get_wine_for_meal(meal, get_bottles(user_id))
+    return _text_stream(stream_wine_for_meal(meal, get_bottles(user_id)))
 
 @app.get("/ai/recommendations")
 def recommendations(user_id: str = Depends(get_current_user)):
-    result = get_recommendations(get_bottles(user_id))
-    return {"result": result}
+    return _text_stream(stream_recommendations(get_bottles(user_id)))

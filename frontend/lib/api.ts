@@ -48,11 +48,10 @@ export const updateBottle = (id: number, b: BottleInput) => api.put(`/bottles/${
 export const deleteBottle = (id: number) => api.delete(`/bottles/${id}`)
 export const drinkBottle = (id: number, entry: DrinkEntryInput) => api.post(`/bottles/${id}/drink`, entry)
 export const getLog = () => api.get<LogEntry[]>('/log').then(r => r.data)
-export const getPairing = (id: number) => api.get(`/ai/pairing/${id}`).then(r => r.data)
-export const getRecommendations = () => api.get('/ai/recommendations').then(r => r.data)
 export const lookupWine = (params: Record<string, string>) => api.get('/ai/lookup', { params }).then(r => r.data)
-export type MealPairingResult = { pairings: string; gaps: string | null }
-export const getMealPairing = (meal: string) => api.get<MealPairingResult>('/ai/meal-pairing', { params: { meal } }).then(r => r.data)
+
+// The AI free-text endpoints (pairing, recommendations, meal-pairing) stream
+// their responses — see lib/useStream.ts, which consumes them via fetch.
 
 export type WineLookupFields = {
   drink_from?: number
