@@ -52,15 +52,21 @@ backend/    FastAPI + psycopg2 (pooled) + Anthropic SDK               — deploy
 ```bash
 # Backend
 cd backend
+cp .env.example .env               # then fill in real values
 python -m venv venv && source venv/bin/activate
 pip install -r requirements-dev.txt
 uvicorn main:app --reload          # http://localhost:8000
 
 # Frontend
 cd frontend
+cp .env.example .env.local         # then fill in real values
 npm install
 npm run dev                        # http://localhost:3000
 ```
+
+Real `.env` / `.env.local` files are gitignored and never committed — they
+live only on your machine (and in the Railway/Vercel dashboards in production).
+The committed `.env.example` files document what each one needs.
 
 ## Tests
 
