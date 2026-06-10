@@ -55,3 +55,49 @@ def test_parse_value_none_when_unknown_or_zero():
     assert ai._parse_value("ESTIMATED_VALUE: NONE\nBASIS: no data")["value"] is None
     assert ai._parse_value("ESTIMATED_VALUE: 0")["value"] is None
     assert ai._parse_value("nothing useful here")["value"] is None
+
+
+def test_value_search_tool_picks_dynamic_for_capable_models():
+    assert ai._value_search_tool("claude-sonnet-4-6")["type"] == "web_search_20260209"
+    assert ai._value_search_tool("claude-opus-4-8")["type"] == "web_search_20260209"
+    assert ai._value_search_tool("claude-fable-5")["type"] == "web_search_20260209"
+    # Haiku (and anything unrecognized) gets the basic tool.
+    assert ai._value_search_tool("claude-haiku-4-5")["type"] == "web_search_20250305"
+
+
+class _FakeBlock:
+    type = "text"
+    def __init__(self, text):
+        self.text = text
+
+
+class _FakeMsg:
+    stop_reason = "end_turn"
+    def __init__(self, text):
+        self.content = [_FakeBlock(text)]
+
+
+class _FakeMessages:
+    def __init__(self):
+        self.tool_types = []
+
+    def create(self, *, model, max_tokens, tools, messages):
+        self.tool_types.append(tools[0]["type"])
+        if tools[0]["type"] == "web_search_20260209":
+            raise RuntimeError("dynamic filtering not enabled for org")
+        return _FakeMsg("ESTIMATED_VALUE: 50\nBASIS: basic web search")
+
+
+class _FakeClient:
+    def __init__(self):
+        self.messages = _FakeMessages()
+
+
+def test_estimate_falls_back_to_basic_when_dynamic_fails(monkeypatch):
+    fake = _FakeClient()
+    monkeypatch.setattr(ai, "client", fake)
+    monkeypatch.setattr(ai, "VALUE_MODEL", "claude-sonnet-4-6")
+    out = ai.estimate_market_value("Ridge", "Santa Cruz Mountains")
+    assert out["value"] == 50.0
+    # Tried dynamic first, then fell back to the basic tool.
+    assert fake.messages.tool_types == ["web_search_20260209", "web_search_20250305"]

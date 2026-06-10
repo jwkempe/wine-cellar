@@ -3,6 +3,7 @@ import logging
 import os
 import time
 from collections import defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import asynccontextmanager
 from datetime import date
 from typing import Iterator, Optional
@@ -75,6 +76,10 @@ _ai_calls: dict[str, deque[float]] = defaultdict(deque)
 # can't fan out into hundreds of paid web searches. Users can re-run to
 # continue through a large backlog.
 BULK_VALUE_LIMIT = int(os.getenv("BULK_VALUE_LIMIT", "60"))
+# How many bottles to value in parallel during a bulk run. Each is an
+# independent web-search call, so a handful of concurrent lookups is a big
+# speedup over going one at a time.
+VALUE_CONCURRENCY = int(os.getenv("VALUE_CONCURRENCY", "5"))
 
 
 def rate_limited_user(user_id: str = Depends(get_current_user)) -> str:
@@ -306,21 +311,33 @@ def estimate_cellar(user_id: str = Depends(rate_limited_user)):
 
     def events():
         valued = 0
-        for b in batch:
-            try:
-                est = estimate_market_value(
-                    b["winery"], b["region"], b["wine_name"],
-                    b["varietal"], b["vintage"], b["appellation"],
-                )
-                value = est.get("value")
-                if value is not None:
-                    set_market_value(b["id"], user_id, value)
-                    valued += 1
-                yield f"data: {json.dumps({'id': b['id'], 'value': value})}\n\n"
-            except Exception:
-                logger.exception("valuation failed for bottle %s", b["id"])
-                yield f"data: {json.dumps({'id': b['id'], 'value': None, 'error': True})}\n\n"
-        summary = {"valued": valued, "remaining": len(unvalued) - len(batch)}
-        yield f"event: done\ndata: {json.dumps(summary)}\n\n"
+        # Value bottles in parallel; the AI/web-search call per bottle is the
+        # slow part, while DB writes stay on this generator thread.
+        executor = ThreadPoolExecutor(max_workers=VALUE_CONCURRENCY)
+        futures = {
+            executor.submit(
+                estimate_market_value, b["winery"], b["region"], b["wine_name"],
+                b["varietal"], b["vintage"], b["appellation"],
+            ): b
+            for b in batch
+        }
+        try:
+            for future in as_completed(futures):
+                b = futures[future]
+                try:
+                    value = future.result().get("value")
+                    if value is not None:
+                        set_market_value(b["id"], user_id, value)
+                        valued += 1
+                    yield f"data: {json.dumps({'id': b['id'], 'value': value})}\n\n"
+                except Exception:
+                    logger.exception("valuation failed for bottle %s", b["id"])
+                    yield f"data: {json.dumps({'id': b['id'], 'value': None, 'error': True})}\n\n"
+            summary = {"valued": valued, "remaining": len(unvalued) - len(batch)}
+            yield f"event: done\ndata: {json.dumps(summary)}\n\n"
+        finally:
+            # If the client disconnects, drop queued lookups instead of paying
+            # for searches nobody is waiting on.
+            executor.shutdown(wait=False, cancel_futures=True)
 
     return StreamingResponse(events(), media_type="text/event-stream", headers=_SSE_HEADERS)

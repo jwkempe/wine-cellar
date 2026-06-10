@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Any, Iterator
 
@@ -6,8 +7,28 @@ import anthropic
 from dotenv import load_dotenv
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 # Overridable so a model bump is a config change, not a deploy.
 MODEL = os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8")
+
+# Pulling a price out of search results is a cheap extraction task, so it runs
+# on a small fast model by default.
+VALUE_MODEL = os.getenv("ANTHROPIC_VALUE_MODEL", "claude-haiku-4-5")
+
+# Basic web search works on every model. web_search_20260209 adds dynamic
+# filtering (Claude filters results with code before they reach context — more
+# accurate, fewer tokens) but only on Opus 4.6+/Sonnet 4.6/Fable. We pick the
+# best tool the value model supports and fall back to basic if it errors.
+_WEB_SEARCH_BASIC = {"type": "web_search_20250305", "name": "web_search", "max_uses": 3}
+_WEB_SEARCH_DYNAMIC = {"type": "web_search_20260209", "name": "web_search"}
+_DYNAMIC_FILTER_MODELS = ("opus-4-6", "opus-4-7", "opus-4-8", "sonnet-4-6", "fable-5")
+
+
+def _value_search_tool(model: str) -> dict:
+    if any(tag in model for tag in _DYNAMIC_FILTER_MODELS):
+        return _WEB_SEARCH_DYNAMIC
+    return _WEB_SEARCH_BASIC
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
@@ -178,22 +199,15 @@ def _parse_value(text: str) -> dict:
     return {"value": value, "basis": basis}
 
 
-def estimate_market_value(winery, region, wine_name=None, varietal=None,
-                          vintage=None, appellation=None) -> dict:
-    """Estimate a bottle's current market value, grounded in web search.
-
-    Returns {"value": float|None, "basis": str}. value is None when Claude
-    can't find enough data — callers should treat None as "no estimate".
-    """
-    prompt = _value_prompt(winery, region, wine_name, varietal, vintage, appellation)
+def _run_valuation(prompt: str, tool: dict) -> dict:
     messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
     resp = None
     # Server-side web search may need several turns; pause_turn means "resume".
     for _ in range(4):
         resp = client.messages.create(
-            model=MODEL,
+            model=VALUE_MODEL,
             max_tokens=2048,
-            tools=[{"type": "web_search_20260209", "name": "web_search"}],
+            tools=[tool],
             messages=messages,
         )
         if resp.stop_reason != "pause_turn":
@@ -204,3 +218,25 @@ def estimate_market_value(winery, region, wine_name=None, varietal=None,
         b.text for b in resp.content if getattr(b, "type", None) == "text"
     ) if resp else ""
     return _parse_value(text)
+
+
+def estimate_market_value(winery, region, wine_name=None, varietal=None,
+                          vintage=None, appellation=None) -> dict:
+    """Estimate a bottle's current market value, grounded in web search.
+
+    Uses the dynamic-filtering web search tool when VALUE_MODEL supports it,
+    falling back to the basic tool if that call fails (e.g. dynamic filtering
+    isn't enabled for the org). Returns {"value": float|None, "basis": str};
+    value is None when Claude can't find enough data.
+    """
+    prompt = _value_prompt(winery, region, wine_name, varietal, vintage, appellation)
+    tool = _value_search_tool(VALUE_MODEL)
+    try:
+        return _run_valuation(prompt, tool)
+    except Exception:
+        if tool["type"] == _WEB_SEARCH_BASIC["type"]:
+            raise  # already the basic tool — nothing simpler to fall back to
+        logger.warning(
+            "Dynamic-filter web search failed; retrying with basic search", exc_info=True
+        )
+        return _run_valuation(prompt, _WEB_SEARCH_BASIC)
