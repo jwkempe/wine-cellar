@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, ReactNode } from 'react'
-import { lookupWine, parseLookupResult, BottleInput } from '@/lib/api'
+import { lookupWine, lookupValue, parseLookupResult, BottleInput } from '@/lib/api'
 
 const inputClass = "w-full bg-[#0f0d0b] border border-[#2e2a25] rounded px-3 py-2 text-[#f0ead8] text-sm placeholder-[#f0ead8]/20 focus:outline-none focus:border-[#c9a84c]/50 transition-colors"
 const labelClass = "block text-xs text-[#f0ead8]/30 tracking-widest uppercase mb-1.5"
@@ -36,9 +36,42 @@ export default function BottleForm({
   const [notTried, setNotTried] = useState(initial ? initial.your_rating == null : true)
   const [lookingUp, setLookingUp] = useState(false)
   const [lookupError, setLookupError] = useState<string | null>(null)
+  const [valuing, setValuing] = useState(false)
+  const [valueNote, setValueNote] = useState<string | null>(null)
 
   function set<K extends keyof BottleInput>(field: K, value: BottleInput[K]) {
     setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  function lookupParams(): Record<string, string> {
+    const params: Record<string, string> = {}
+    if (form.winery) params.winery = form.winery
+    if (form.region) params.region = form.region
+    if (form.wine_name) params.wine_name = form.wine_name
+    if (form.varietal) params.varietal = form.varietal
+    if (form.vintage) params.vintage = String(form.vintage)
+    if (form.appellation) params.appellation = form.appellation
+    return params
+  }
+
+  async function handleValueLookup() {
+    if (!form.winery || !form.region) return
+    setValuing(true)
+    setValueNote(null)
+    try {
+      const data = await lookupValue(lookupParams())
+      if (data.value != null) {
+        set('market_value', data.value)
+        setValueNote(data.basis || 'Estimated from current market listings.')
+      } else {
+        setValueNote("Couldn't find enough market data — enter a value manually.")
+      }
+    } catch (err) {
+      console.error('Value lookup error:', err)
+      setValueNote('Could not estimate a value right now. Please try again.')
+    } finally {
+      setValuing(false)
+    }
   }
 
   async function handleLookup() {
@@ -46,12 +79,7 @@ export default function BottleForm({
     setLookingUp(true)
     setLookupError(null)
     try {
-      const params: Record<string, string> = { winery: form.winery, region: form.region }
-      if (form.wine_name) params.wine_name = form.wine_name
-      if (form.varietal) params.varietal = form.varietal
-      if (form.vintage) params.vintage = String(form.vintage)
-      if (form.appellation) params.appellation = form.appellation
-      const data = await lookupWine(params)
+      const data = await lookupWine(lookupParams())
       const fields = parseLookupResult(data.result)
       setForm(prev => ({ ...prev, ...fields }))
     } catch (err) {
@@ -80,6 +108,7 @@ export default function BottleForm({
       your_rating: notTried ? null : (form.your_rating ?? null),
       expert_notes: form.expert_notes || null,
       purchase_price: form.purchase_price ?? null,
+      market_value: form.market_value ?? null,
     })
   }
 
@@ -114,10 +143,28 @@ export default function BottleForm({
         </div>
       </div>
 
-      <div className="mb-4">
-        <label className={labelClass}>Purchase Price (per bottle, $)</label>
-        <input className={inputClass} type="number" min={0} step={0.01} placeholder="Optional" value={form.purchase_price ?? ''} onChange={e => set('purchase_price', e.target.value ? parseFloat(e.target.value) : null)} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+        <div>
+          <label className={labelClass}>Purchase Price (per bottle, $)</label>
+          <input className={inputClass} type="number" min={0} step={0.01} placeholder="What you paid" value={form.purchase_price ?? ''} onChange={e => set('purchase_price', e.target.value ? parseFloat(e.target.value) : null)} />
+        </div>
+        <div>
+          <label className={labelClass}>Est. Market Value (per bottle, $)</label>
+          <input className={inputClass} type="number" min={0} step={0.01} placeholder="Current value" value={form.market_value ?? ''} onChange={e => set('market_value', e.target.value ? parseFloat(e.target.value) : null)} />
+        </div>
       </div>
+      <button
+        onClick={handleValueLookup}
+        disabled={valuing || !form.winery || !form.region}
+        className="text-sm border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded hover:bg-[#c9a84c]/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      >
+        {valuing ? 'Searching the market...' : 'Look up market value'}
+      </button>
+      {(!form.winery || !form.region)
+        ? <p className="text-xs text-[#f0ead8]/25 mt-1 mb-4">Fill in Winery and Region to enable</p>
+        : valueNote
+          ? <p className="text-xs text-[#f0ead8]/40 mt-2 mb-4 leading-relaxed">{valueNote} <span className="text-[#f0ead8]/25">Estimate only — verify before relying on it.</span></p>
+          : <div className="mb-4" />}
 
       <div className="flex items-center gap-3 mb-4">
         <input type="checkbox" id="nv" checked={isNV} onChange={e => setIsNV(e.target.checked)} className="accent-[#c9a84c]" />

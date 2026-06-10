@@ -141,3 +141,66 @@ def stream_wine_for_meal(meal: str, bottles: list[dict[str, Any]]) -> Iterator[s
 
 def lookup_wine_info(winery, region, wine_name=None, varietal=None, vintage=None, appellation=None) -> str:
     return _complete(_lookup_prompt(winery, region, wine_name, varietal, vintage, appellation))
+
+
+# ── Market value estimation (web-search grounded) ────────────────────────────
+
+def _value_prompt(winery, region, wine_name, varietal, vintage, appellation) -> str:
+    vintage_str = "Non-Vintage (NV)" if not vintage else str(int(vintage))
+    name = f" {wine_name}" if wine_name else ""
+    extra = f", {appellation}" if appellation else ""
+    return f"""You are a wine market analyst. Search the web for the current fair market value of this specific wine and give a single best estimate of its price per 750ml bottle in US dollars.
+
+Wine: {vintage_str} {winery}{name} — {varietal or 'unknown varietal'}, {region}{extra}
+
+Base the estimate on current retail and auction listings (e.g. Wine-Searcher, wine retailers, recent auction results). If the exact vintage isn't listed, use the nearest comparable vintage. If you genuinely cannot find enough information to estimate, answer NONE.
+
+Respond in exactly this format and nothing else:
+ESTIMATED_VALUE: <number only, no symbols or commas, e.g. 85 — or NONE>
+BASIS: <one short sentence on what the figure is based on>"""
+
+
+def _parse_value(text: str) -> dict:
+    value: float | None = None
+    basis = ""
+    for line in text.splitlines():
+        s = line.strip()
+        upper = s.upper()
+        if upper.startswith("ESTIMATED_VALUE:"):
+            raw = s.split(":", 1)[1].strip().replace("$", "").replace(",", "")
+            try:
+                parsed = round(float(raw), 2)
+                value = parsed if parsed > 0 else None
+            except ValueError:
+                value = None
+        elif upper.startswith("BASIS:"):
+            basis = s.split(":", 1)[1].strip()
+    return {"value": value, "basis": basis}
+
+
+def estimate_market_value(winery, region, wine_name=None, varietal=None,
+                          vintage=None, appellation=None) -> dict:
+    """Estimate a bottle's current market value, grounded in web search.
+
+    Returns {"value": float|None, "basis": str}. value is None when Claude
+    can't find enough data — callers should treat None as "no estimate".
+    """
+    prompt = _value_prompt(winery, region, wine_name, varietal, vintage, appellation)
+    messages: list[dict[str, Any]] = [{"role": "user", "content": prompt}]
+    resp = None
+    # Server-side web search may need several turns; pause_turn means "resume".
+    for _ in range(4):
+        resp = client.messages.create(
+            model=MODEL,
+            max_tokens=2048,
+            tools=[{"type": "web_search_20260209", "name": "web_search"}],
+            messages=messages,
+        )
+        if resp.stop_reason != "pause_turn":
+            break
+        messages.append({"role": "assistant", "content": resp.content})
+
+    text = "".join(
+        b.text for b in resp.content if getattr(b, "type", None) == "text"
+    ) if resp else ""
+    return _parse_value(text)
