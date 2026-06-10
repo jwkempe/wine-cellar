@@ -34,14 +34,19 @@ client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 
 def _complete(prompt: str, max_tokens: int = 1024) -> str:
-    """Send a single-turn prompt to Claude and return the full text response."""
-    message = client.messages.create(
+    """Send a single-turn prompt to Claude and return the full text response.
+
+    Streams under the hood (and assembles the final message) so the connection
+    keeps receiving bytes while Opus generates, rather than sitting idle on a
+    non-streaming request that an intermediary may drop. Joins all text blocks
+    rather than assuming content[0] is text.
+    """
+    with client.messages.stream(
         model=MODEL,
         max_tokens=max_tokens,
         messages=[{"role": "user", "content": prompt}],
-    )
-    # Join all text blocks rather than assuming content[0] is text — a refusal,
-    # empty content, or any non-text leading block would otherwise raise.
+    ) as stream:
+        message = stream.get_final_message()
     return "".join(b.text for b in message.content if getattr(b, "type", None) == "text")
 
 
