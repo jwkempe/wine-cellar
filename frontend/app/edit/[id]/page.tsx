@@ -29,7 +29,7 @@ export default function EditBottle() {
     mutationFn: (data: BottleInput) => updateBottle(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bottles'] })
-      router.push('/')
+      router.push(`/bottle/${id}`)
     },
   })
 

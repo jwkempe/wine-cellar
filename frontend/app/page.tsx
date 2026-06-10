@@ -14,7 +14,11 @@ function money(n: number): string {
     : '—'
 }
 
-type SortKey = 'wine' | 'vintage' | 'varietal' | 'region' | 'quantity' | 'window' | 'rating'
+function perBottle(n: number | null): string {
+  return n != null ? `$${Math.round(n).toLocaleString('en-US')}` : '—'
+}
+
+type SortKey = 'wine' | 'vintage' | 'varietal' | 'region' | 'quantity' | 'window' | 'rating' | 'value'
 
 const columns: { key: SortKey; label: string; className?: string }[] = [
   { key: 'wine',     label: 'Wine' },
@@ -24,6 +28,7 @@ const columns: { key: SortKey; label: string; className?: string }[] = [
   { key: 'quantity', label: 'Qty',      className: 'text-right' },
   { key: 'window',   label: 'Window',   className: 'hidden md:table-cell' },
   { key: 'rating',   label: 'Rating',   className: 'text-right hidden sm:table-cell' },
+  { key: 'value',    label: 'Est. Value', className: 'text-right hidden sm:table-cell' },
 ]
 
 function compareByKey(a: Bottle, b: Bottle, key: SortKey, asc: boolean): number {
@@ -41,6 +46,7 @@ function compareByKey(a: Bottle, b: Bottle, key: SortKey, asc: boolean): number 
   if (key === 'quantity') { av = a.quantity; bv = b.quantity }
   if (key === 'window')   { av = a.drink_from ?? 0; bv = b.drink_from ?? 0 }
   if (key === 'rating')   { av = a.your_rating ?? 0; bv = b.your_rating ?? 0 }
+  if (key === 'value')    { av = a.market_value ?? 0; bv = b.market_value ?? 0 }
   if (typeof av === 'string' && typeof bv === 'string') {
     return asc ? av.localeCompare(bv) : bv.localeCompare(av)
   }
@@ -77,7 +83,7 @@ export default function Home() {
       setSecondaryKey(sortKey)
       setSecondaryAsc(sortAsc)
       setSortKey(key)
-      setSortAsc(key === 'rating' || key === 'quantity' ? false : true)
+      setSortAsc(key === 'rating' || key === 'quantity' || key === 'value' ? false : true)
     }
   }
 
@@ -184,14 +190,14 @@ export default function Home() {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-[#f0ead8]/25 text-sm pl-4 lg:pl-0">
+                <td colSpan={8} className="py-8 text-center text-[#f0ead8]/25 text-sm pl-4 lg:pl-0">
                   No wines match your search.
                 </td>
               </tr>
             ) : filtered.map(bottle => (
               <tr
                 key={bottle.id}
-                onClick={() => router.push(`/edit/${bottle.id}`)}
+                onClick={() => router.push(`/bottle/${bottle.id}`)}
                 className="border-b border-[#1a1714] hover:bg-[#161412] cursor-pointer transition-colors"
               >
                 <td className="py-3 pr-6 pl-4 lg:pl-0">
@@ -221,8 +227,11 @@ export default function Home() {
                     ? `${bottle.drink_from}–${bottle.drink_by}`
                     : '—'}
                 </td>
-                <td className="py-3 text-[#f0ead8]/45 tabular-nums text-right hidden sm:table-cell">
+                <td className="py-3 pr-6 text-[#f0ead8]/45 tabular-nums text-right hidden sm:table-cell">
                   {bottle.your_rating ?? '—'}
+                </td>
+                <td className="py-3 text-[#f0ead8]/45 tabular-nums text-right hidden sm:table-cell">
+                  {perBottle(bottle.market_value)}
                 </td>
               </tr>
             ))}
