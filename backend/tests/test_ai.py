@@ -40,3 +40,18 @@ def test_lookup_prompt_handles_non_vintage():
     prompt = ai._lookup_prompt("Krug", "Champagne", None, None, None, None)
     assert "Non-Vintage (NV)" in prompt
     assert "Blend / Not specified" in prompt
+
+
+def test_parse_value_extracts_number_and_basis():
+    out = ai._parse_value("ESTIMATED_VALUE: 85\nBASIS: Based on Wine-Searcher listings.")
+    assert out == {"value": 85.0, "basis": "Based on Wine-Searcher listings."}
+
+
+def test_parse_value_strips_currency_formatting():
+    assert ai._parse_value("ESTIMATED_VALUE: $1,250.50")["value"] == 1250.50
+
+
+def test_parse_value_none_when_unknown_or_zero():
+    assert ai._parse_value("ESTIMATED_VALUE: NONE\nBASIS: no data")["value"] is None
+    assert ai._parse_value("ESTIMATED_VALUE: 0")["value"] is None
+    assert ai._parse_value("nothing useful here")["value"] is None

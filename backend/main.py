@@ -14,12 +14,13 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from ai import (
-    lookup_wine_info, stream_pairing, stream_recommendations, stream_wine_for_meal,
+    estimate_market_value, lookup_wine_info, stream_pairing,
+    stream_recommendations, stream_wine_for_meal,
 )
 from auth import get_current_user
 from database import (
     add_bottle, decrement_bottle, delete_bottle, get_bottle, get_bottles,
-    get_consumption_log, init_db, log_consumption, update_bottle,
+    get_consumption_log, init_db, log_consumption, set_market_value, update_bottle,
 )
 
 load_dotenv()
@@ -70,6 +71,11 @@ app.add_middleware(
 AI_RATE_LIMIT_PER_MINUTE = int(os.getenv("AI_RATE_LIMIT_PER_MINUTE", "20"))
 _ai_calls: dict[str, deque[float]] = defaultdict(deque)
 
+# Cap how many bottles a single bulk-valuation run will price, so one click
+# can't fan out into hundreds of paid web searches. Users can re-run to
+# continue through a large backlog.
+BULK_VALUE_LIMIT = int(os.getenv("BULK_VALUE_LIMIT", "60"))
+
 
 def rate_limited_user(user_id: str = Depends(get_current_user)) -> str:
     now = time.monotonic()
@@ -102,6 +108,7 @@ class BottleIn(BaseModel):
     your_rating: Optional[float] = Field(default=None, ge=0, le=100)
     expert_notes: Optional[str] = Field(default=None, max_length=5000)
     purchase_price: Optional[float] = Field(default=None, ge=0)
+    market_value: Optional[float] = Field(default=None, ge=0)
 
 
 class BottleOut(BaseModel):
@@ -121,6 +128,13 @@ class BottleOut(BaseModel):
     your_rating: Optional[float] = None
     expert_notes: Optional[str] = None
     purchase_price: Optional[float] = None
+    market_value: Optional[float] = None
+    market_value_updated: Optional[date] = None
+
+
+class ValueEstimate(BaseModel):
+    value: Optional[float] = None
+    basis: str = ""
 
 
 class DrinkEntry(BaseModel):
@@ -161,14 +175,16 @@ def list_bottles(user_id: str = Depends(get_current_user)):
 def create_bottle(b: BottleIn, user_id: str = Depends(get_current_user)):
     add_bottle(b.winery, b.wine_name, b.region, b.appellation, b.varietal,
                b.vintage, b.quantity, b.drink_from, b.drink_by,
-               b.your_notes, b.your_rating, b.expert_notes, user_id, b.purchase_price)
+               b.your_notes, b.your_rating, b.expert_notes, user_id,
+               b.purchase_price, b.market_value)
     return {"status": "ok"}
 
 @app.put("/bottles/{bottle_id}", response_model=StatusOut)
 def edit_bottle(bottle_id: int, b: BottleIn, user_id: str = Depends(get_current_user)):
     update_bottle(bottle_id, b.winery, b.wine_name, b.region, b.appellation,
                   b.varietal, b.vintage, b.quantity, b.drink_from, b.drink_by,
-                  b.your_notes, b.your_rating, b.expert_notes, user_id, b.purchase_price)
+                  b.your_notes, b.your_rating, b.expert_notes, user_id,
+                  b.purchase_price, b.market_value)
     return {"status": "ok"}
 
 @app.delete("/bottles/{bottle_id}", response_model=StatusOut)
@@ -261,3 +277,50 @@ def meal_pairing(meal: str = Query(min_length=1, max_length=2000),
 @app.get("/ai/recommendations")
 def recommendations(user_id: str = Depends(rate_limited_user)):
     return _sse_stream(stream_recommendations(get_bottles(user_id)))
+
+
+@app.get("/ai/value-lookup", response_model=ValueEstimate)
+def value_lookup(winery: str = Query(min_length=1, max_length=200),
+                 region: str = Query(max_length=200),
+                 wine_name: Optional[str] = Query(default=None, max_length=200),
+                 varietal: Optional[str] = Query(default=None, max_length=200),
+                 vintage: Optional[int] = Query(default=None, ge=1800, le=2100),
+                 appellation: Optional[str] = Query(default=None, max_length=200),
+                 user_id: str = Depends(rate_limited_user)):
+    try:
+        return estimate_market_value(winery, region, wine_name, varietal, vintage, appellation)
+    except Exception:
+        logger.exception("value lookup failed")
+        raise HTTPException(status_code=502, detail="Could not estimate a value right now.")
+
+
+@app.post("/ai/estimate-cellar")
+def estimate_cellar(user_id: str = Depends(rate_limited_user)):
+    """Estimate values for bottles that don't have one yet, streaming progress.
+
+    Each bottle priced emits an SSE `data:` event {id, value}; persistence
+    happens server-side as we go, so a closed tab still keeps prior results.
+    """
+    unvalued = [b for b in get_bottles(user_id) if b.get("market_value") is None]
+    batch = unvalued[:BULK_VALUE_LIMIT]
+
+    def events():
+        valued = 0
+        for b in batch:
+            try:
+                est = estimate_market_value(
+                    b["winery"], b["region"], b["wine_name"],
+                    b["varietal"], b["vintage"], b["appellation"],
+                )
+                value = est.get("value")
+                if value is not None:
+                    set_market_value(b["id"], user_id, value)
+                    valued += 1
+                yield f"data: {json.dumps({'id': b['id'], 'value': value})}\n\n"
+            except Exception:
+                logger.exception("valuation failed for bottle %s", b["id"])
+                yield f"data: {json.dumps({'id': b['id'], 'value': None, 'error': True})}\n\n"
+        summary = {"valued": valued, "remaining": len(unvalued) - len(batch)}
+        yield f"event: done\ndata: {json.dumps(summary)}\n\n"
+
+    return StreamingResponse(events(), media_type="text/event-stream", headers=_SSE_HEADERS)

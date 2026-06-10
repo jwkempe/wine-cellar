@@ -3,9 +3,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { getBottles, Bottle } from '@/lib/api'
 import { isReady } from '@/lib/wine'
+import { useCellarValuation } from '@/lib/useCellarValuation'
 import { useRouter } from 'next/navigation'
 import { useState, useMemo } from 'react'
 import PageHeader from './components/PageHeader'
+
+function money(n: number): string {
+  return n > 0
+    ? `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+    : '—'
+}
 
 type SortKey = 'wine' | 'vintage' | 'varietal' | 'region' | 'quantity' | 'window' | 'rating'
 
@@ -56,6 +63,7 @@ export default function Home() {
     queryFn: getBottles,
   })
 
+  const valuation = useCellarValuation()
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('wine')
   const [sortAsc, setSortAsc] = useState(true)
@@ -95,20 +103,22 @@ export default function Home() {
     ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1)
     : '—'
   const cellarValue = bottles.reduce((sum, b) => sum + (b.purchase_price ?? 0) * b.quantity, 0)
-  const cellarValueStr = cellarValue > 0 ? `$${cellarValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—'
+  const estValue = bottles.reduce((sum, b) => sum + (b.market_value ?? 0) * b.quantity, 0)
+  const unpriced = bottles.filter(b => b.market_value == null).length
 
   return (
     <div className="min-w-0">
       <PageHeader title="My Cellar" subtitle="Collection Overview" />
 
       {/* Stats */}
-      <div className="flex gap-6 mb-8 text-sm">
+      <div className="flex flex-wrap gap-x-6 gap-y-4 mb-6 text-sm">
         {[
           { label: 'Bottles', value: totalBottles },
           { label: 'Wines', value: bottles.length },
           { label: 'Ready', value: readyCount },
           { label: 'Avg Rating', value: avgRating },
-          { label: 'Cellar Value', value: cellarValueStr },
+          { label: 'Paid', value: money(cellarValue) },
+          { label: 'Est. Value', value: money(estValue) },
         ].map((s, i) => (
           <div key={s.label} className={`${i > 0 ? 'pl-6 border-l border-[#2e2a25]' : ''}`}>
             <p className="text-xl font-semibold text-[#f0ead8] tabular-nums">{s.value}</p>
@@ -116,6 +126,30 @@ export default function Home() {
           </div>
         ))}
       </div>
+
+      {/* Bulk market-value estimation */}
+      {unpriced > 0 && (
+        <div className="mb-8">
+          <button
+            onClick={() => valuation.run()}
+            disabled={valuation.running}
+            className="text-sm border border-[#c9a84c]/40 text-[#c9a84c] px-4 py-2 rounded hover:bg-[#c9a84c]/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {valuation.running
+              ? `Searching the market… ${valuation.processed} priced`
+              : `Estimate value of ${unpriced} unpriced wine${unpriced !== 1 ? 's' : ''}`}
+          </button>
+          {valuation.result && valuation.result.remaining > 0 && (
+            <p className="text-xs text-[#f0ead8]/40 mt-2">
+              Priced {valuation.result.valued}; {valuation.result.remaining} still need a value — run again to continue.
+            </p>
+          )}
+          {valuation.error && <p className="text-red-400/70 text-sm mt-2">{valuation.error}</p>}
+          <p className="text-xs text-[#f0ead8]/25 mt-2">
+            Uses web search to estimate current market value — a ballpark, not an appraisal.
+          </p>
+        </div>
+      )}
 
       {/* Search */}
       <div className="mb-4">

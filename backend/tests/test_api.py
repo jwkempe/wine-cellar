@@ -105,6 +105,46 @@ def test_ai_rate_limit_trips(client, monkeypatch):
     main._ai_calls.clear()
 
 
+def test_value_lookup_returns_estimate(client, monkeypatch):
+    main._ai_calls.clear()
+    monkeypatch.setattr(
+        main, "estimate_market_value",
+        lambda *a, **k: {"value": 90.0, "basis": "auction comps"},
+    )
+    res = client.get("/ai/value-lookup", params={"winery": "Ridge", "region": "SCM"})
+    assert res.status_code == 200
+    assert res.json() == {"value": 90.0, "basis": "auction comps"}
+    main._ai_calls.clear()
+
+
+def test_value_lookup_502_on_failure(client, monkeypatch):
+    main._ai_calls.clear()
+    def boom(*a, **k):
+        raise RuntimeError("web search unavailable")
+    monkeypatch.setattr(main, "estimate_market_value", boom)
+    res = client.get("/ai/value-lookup", params={"winery": "Ridge", "region": "SCM"})
+    assert res.status_code == 502
+    main._ai_calls.clear()
+
+
+def test_estimate_cellar_only_prices_unvalued_and_persists(client, monkeypatch):
+    main._ai_calls.clear()
+    bottles = [
+        {**SAMPLE_ROW, "id": 1, "market_value": None},
+        {**SAMPLE_ROW, "id": 2, "market_value": 75.0},  # already valued — skipped
+    ]
+    saved = []
+    monkeypatch.setattr(main, "get_bottles", lambda user_id: [dict(b) for b in bottles])
+    monkeypatch.setattr(main, "estimate_market_value", lambda *a, **k: {"value": 120.0, "basis": "x"})
+    monkeypatch.setattr(main, "set_market_value", lambda bid, uid, val: saved.append((bid, val)))
+
+    res = client.post("/ai/estimate-cellar")
+    assert res.status_code == 200
+    assert "id" in res.text and "valued" in res.text  # streamed events + done summary
+    assert saved == [(1, 120.0)]  # only the unvalued bottle was priced and saved
+    main._ai_calls.clear()
+
+
 def test_sse_framing_and_error_event():
     frames = list(main._sse_events(iter(["Hello", " world\n", ""])))
     assert frames == ['data: "Hello"\n\n', 'data: " world\\n"\n\n']

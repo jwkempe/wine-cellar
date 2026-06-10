@@ -131,6 +131,8 @@ def init_db() -> None:
         # Migrations (idempotent)
         c.execute('ALTER TABLE bottles ADD COLUMN IF NOT EXISTS user_id TEXT')
         c.execute('ALTER TABLE bottles ADD COLUMN IF NOT EXISTS purchase_price REAL')
+        c.execute('ALTER TABLE bottles ADD COLUMN IF NOT EXISTS market_value REAL')
+        c.execute('ALTER TABLE bottles ADD COLUMN IF NOT EXISTS market_value_updated DATE')
         # Indexes — every query filters by user_id, so index it on both tables.
         c.execute('CREATE INDEX IF NOT EXISTS idx_bottles_user_id ON bottles (user_id)')
         c.execute('CREATE INDEX IF NOT EXISTS idx_log_user_id ON consumption_log (user_id)')
@@ -138,15 +140,18 @@ def init_db() -> None:
 
 def add_bottle(winery, wine_name, region, appellation, varietal, vintage, quantity,
                drink_from, drink_by, your_notes, your_rating, expert_notes, user_id,
-               purchase_price=None) -> None:
+               purchase_price=None, market_value=None) -> None:
     with get_cursor(commit=True) as c:
         c.execute('''
             INSERT INTO bottles (winery, wine_name, region, appellation, varietal, vintage,
                                  quantity, drink_from, drink_by, your_notes, your_rating,
-                                 expert_notes, user_id, purchase_price)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                 expert_notes, user_id, purchase_price, market_value,
+                                 market_value_updated)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    CASE WHEN %s IS NOT NULL THEN CURRENT_DATE ELSE NULL END)
         ''', (winery, wine_name, region, appellation, varietal, vintage, quantity,
-              drink_from, drink_by, your_notes, your_rating, expert_notes, user_id, purchase_price))
+              drink_from, drink_by, your_notes, your_rating, expert_notes, user_id,
+              purchase_price, market_value, market_value))
 
 
 def get_bottles(user_id: str) -> list[dict[str, Any]]:
@@ -167,16 +172,34 @@ def get_bottle(bottle_id: int, user_id: str) -> dict[str, Any] | None:
 
 def update_bottle(id, winery, wine_name, region, appellation, varietal, vintage,
                   quantity, drink_from, drink_by, your_notes, your_rating,
-                  expert_notes, user_id, purchase_price=None) -> None:
+                  expert_notes, user_id, purchase_price=None, market_value=None) -> None:
     with get_cursor(commit=True) as c:
+        # market_value_updated is only bumped when the value actually changes,
+        # so editing unrelated fields doesn't make the estimate look fresh.
         c.execute('''
             UPDATE bottles SET
                 winery=%s, wine_name=%s, region=%s, appellation=%s, varietal=%s, vintage=%s,
                 quantity=%s, drink_from=%s, drink_by=%s, your_notes=%s,
-                your_rating=%s, expert_notes=%s, purchase_price=%s
+                your_rating=%s, expert_notes=%s, purchase_price=%s, market_value=%s,
+                market_value_updated = CASE
+                    WHEN market_value IS DISTINCT FROM %s
+                    THEN (CASE WHEN %s IS NOT NULL THEN CURRENT_DATE ELSE NULL END)
+                    ELSE market_value_updated
+                END
             WHERE id=%s AND user_id=%s
         ''', (winery, wine_name, region, appellation, varietal, vintage, quantity,
-              drink_from, drink_by, your_notes, your_rating, expert_notes, purchase_price, id, user_id))
+              drink_from, drink_by, your_notes, your_rating, expert_notes, purchase_price,
+              market_value, market_value, market_value, id, user_id))
+
+
+def set_market_value(bottle_id: int, user_id: str, value: float) -> None:
+    """Persist an estimated market value (used by the bulk valuation flow)."""
+    with get_cursor(commit=True) as c:
+        c.execute(
+            "UPDATE bottles SET market_value=%s, market_value_updated=CURRENT_DATE "
+            "WHERE id=%s AND user_id=%s",
+            (value, bottle_id, user_id),
+        )
 
 
 def decrement_bottle(bottle_id: int, user_id: str, amount: int) -> int | None:

@@ -19,9 +19,12 @@ export type Bottle = {
   your_rating: number | null
   expert_notes: string | null
   purchase_price: number | null
+  market_value: number | null
+  market_value_updated: string | null
 }
 
-export type BottleInput = Omit<Bottle, 'id'>
+// market_value_updated is set server-side, so it isn't part of the write payload.
+export type BottleInput = Omit<Bottle, 'id' | 'market_value_updated'>
 
 export type LogEntry = {
   id: number
@@ -49,6 +52,10 @@ export const deleteBottle = (id: number) => api.delete(`/bottles/${id}`)
 export const drinkBottle = (id: number, entry: DrinkEntryInput) => api.post(`/bottles/${id}/drink`, entry)
 export const getLog = () => api.get<LogEntry[]>('/log').then(r => r.data)
 export const lookupWine = (params: Record<string, string>) => api.get('/ai/lookup', { params }).then(r => r.data)
+
+export type ValueEstimate = { value: number | null; basis: string }
+export const lookupValue = (params: Record<string, string>) =>
+  api.get<ValueEstimate>('/ai/value-lookup', { params }).then(r => r.data)
 
 // The AI free-text endpoints (pairing, recommendations, meal-pairing) stream
 // their responses — see lib/useStream.ts, which consumes them via fetch.
