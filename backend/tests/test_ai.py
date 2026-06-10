@@ -66,9 +66,17 @@ def test_complete_joins_text_and_skips_non_text_blocks(monkeypatch):
     class Msg:
         content = [Block("thinking"), Block("text", "Drink "), Block("text", "now.")]
 
-    class Messages:
-        def create(self, **kwargs):
+    class StreamCtx:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def get_final_message(self):
             return Msg()
+
+    class Messages:
+        def stream(self, **kwargs):
+            return StreamCtx()
 
     class FakeClient:
         messages = Messages()
