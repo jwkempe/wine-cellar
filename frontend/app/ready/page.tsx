@@ -28,7 +28,7 @@ export default function ReadyToDrink() {
           <p className="text-sm text-[#5a8a5a] mb-6">{ready.length} bottle{ready.length !== 1 ? 's' : ''} ready to drink right now.</p>
           <div className="grid gap-2">
             {ready.map(bottle => (
-              <Link href={`/edit/${bottle.id}`} key={bottle.id}>
+              <Link href={`/bottle/${bottle.id}`} key={bottle.id}>
                 <div className="border border-[#2e2a25] rounded p-4 bg-[#161412] hover:bg-[#1c1917] transition-colors cursor-pointer">
                   <div className="flex justify-between items-start gap-3">
                     <div className="min-w-0">
