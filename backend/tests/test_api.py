@@ -105,6 +105,16 @@ def test_ai_rate_limit_trips(client, monkeypatch):
     main._ai_calls.clear()
 
 
+def test_wine_lookup_502_on_failure(client, monkeypatch):
+    main._ai_calls.clear()
+    def boom(*a, **k):
+        raise RuntimeError("anthropic call failed")
+    monkeypatch.setattr(main, "lookup_wine_info", boom)
+    res = client.get("/ai/lookup", params={"winery": "Ridge", "region": "SCM"})
+    assert res.status_code == 502
+    main._ai_calls.clear()
+
+
 def test_value_lookup_returns_estimate(client, monkeypatch):
     main._ai_calls.clear()
     monkeypatch.setattr(
