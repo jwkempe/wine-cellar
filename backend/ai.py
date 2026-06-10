@@ -9,6 +9,12 @@ load_dotenv()
 # Overridable so a model bump is a config change, not a deploy.
 MODEL = os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8")
 
+# Pulling a price out of search results is a cheap extraction task, so it runs
+# on a small fast model by default. Haiku doesn't support the newer
+# web_search_20260209 dynamic-filtering tool, so use the basic version.
+VALUE_MODEL = os.getenv("ANTHROPIC_VALUE_MODEL", "claude-haiku-4-5")
+_WEB_SEARCH_TOOL = {"type": "web_search_20250305", "name": "web_search", "max_uses": 3}
+
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 
@@ -191,9 +197,9 @@ def estimate_market_value(winery, region, wine_name=None, varietal=None,
     # Server-side web search may need several turns; pause_turn means "resume".
     for _ in range(4):
         resp = client.messages.create(
-            model=MODEL,
+            model=VALUE_MODEL,
             max_tokens=2048,
-            tools=[{"type": "web_search_20260209", "name": "web_search"}],
+            tools=[_WEB_SEARCH_TOOL],
             messages=messages,
         )
         if resp.stop_reason != "pause_turn":

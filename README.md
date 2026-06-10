@@ -35,10 +35,16 @@ backend/    FastAPI + psycopg2 (pooled) + Anthropic SDK               — deploy
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ANTHROPIC_MODEL` | `claude-opus-4-8` | Model used for all sommelier features |
+| `ANTHROPIC_MODEL` | `claude-opus-4-8` | Model for the free-text sommelier features |
+| `ANTHROPIC_VALUE_MODEL` | `claude-haiku-4-5` | Model for web-search market-value lookups (cheap extraction) |
 | `AI_RATE_LIMIT_PER_MINUTE` | `20` | Per-user cap on AI calls (wallet protection) |
+| `BULK_VALUE_LIMIT` | `60` | Max bottles priced per bulk valuation run |
+| `VALUE_CONCURRENCY` | `5` | Bottles valued in parallel during a bulk run |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated exact CORS origins |
 | `ALLOWED_ORIGIN_REGEX` | `https://wine-cellar.*\.vercel\.app` | CORS regex for Vercel deploys |
+
+Market-value lookups use Claude's web search tool, which the org admin must
+enable in the Claude Console and which bills ~$10 per 1,000 searches.
 
 ### Frontend
 
