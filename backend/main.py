@@ -261,7 +261,11 @@ def wine_lookup(winery: str = Query(min_length=1, max_length=200),
                 vintage: Optional[int] = Query(default=None, ge=1800, le=2100),
                 appellation: Optional[str] = Query(default=None, max_length=200),
                 user_id: str = Depends(rate_limited_user)):
-    result = lookup_wine_info(winery, region, wine_name, varietal, vintage, appellation)
+    try:
+        result = lookup_wine_info(winery, region, wine_name, varietal, vintage, appellation)
+    except Exception:
+        logger.exception("wine lookup failed")
+        raise HTTPException(status_code=502, detail="The sommelier is temporarily unavailable. Please try again.")
     return {"result": result}
 
 @app.get("/ai/pairing/{bottle_id}")

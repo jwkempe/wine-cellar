@@ -57,6 +57,27 @@ def test_parse_value_none_when_unknown_or_zero():
     assert ai._parse_value("nothing useful here")["value"] is None
 
 
+def test_complete_joins_text_and_skips_non_text_blocks(monkeypatch):
+    class Block:
+        def __init__(self, type, text=None):
+            self.type = type
+            self.text = text
+
+    class Msg:
+        content = [Block("thinking"), Block("text", "Drink "), Block("text", "now.")]
+
+    class Messages:
+        def create(self, **kwargs):
+            return Msg()
+
+    class FakeClient:
+        messages = Messages()
+
+    monkeypatch.setattr(ai, "client", FakeClient())
+    # A leading non-text block (or empty content) must not raise.
+    assert ai._complete("prompt") == "Drink now."
+
+
 def test_value_search_tool_picks_dynamic_for_capable_models():
     assert ai._value_search_tool("claude-sonnet-4-6")["type"] == "web_search_20260209"
     assert ai._value_search_tool("claude-opus-4-8")["type"] == "web_search_20260209"

@@ -40,7 +40,9 @@ def _complete(prompt: str, max_tokens: int = 1024) -> str:
         max_tokens=max_tokens,
         messages=[{"role": "user", "content": prompt}],
     )
-    return message.content[0].text
+    # Join all text blocks rather than assuming content[0] is text — a refusal,
+    # empty content, or any non-text leading block would otherwise raise.
+    return "".join(b.text for b in message.content if getattr(b, "type", None) == "text")
 
 
 def _stream(prompt: str, max_tokens: int = 1024) -> Iterator[str]:
