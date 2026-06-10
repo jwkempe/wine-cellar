@@ -44,7 +44,10 @@ backend/    FastAPI + psycopg2 (pooled) + Anthropic SDK               — deploy
 | `ALLOWED_ORIGIN_REGEX` | `https://wine-cellar.*\.vercel\.app` | CORS regex for Vercel deploys |
 
 Market-value lookups use Claude's web search tool, which the org admin must
-enable in the Claude Console and which bills ~$10 per 1,000 searches.
+enable in the Claude Console and which bills ~$10 per 1,000 searches. When
+`ANTHROPIC_VALUE_MODEL` is an Opus 4.6+/Sonnet 4.6/Fable model, lookups use
+the dynamic-filtering web search tool (more accurate, fewer tokens) and fall
+back to basic search if it's unavailable; Haiku uses basic search.
 
 ### Frontend
 
