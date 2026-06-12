@@ -96,6 +96,47 @@ def test_drink_rejects_zero_quantity(client):
     assert res.status_code == 422
 
 
+def test_drink_passes_rating_to_log(client, monkeypatch):
+    logged = []
+    monkeypatch.setattr(main, "get_bottle", lambda *a: dict(SAMPLE_ROW))
+    monkeypatch.setattr(main, "decrement_bottle", lambda *a: 2)
+    monkeypatch.setattr(main, "log_consumption", lambda *a: logged.append(a))
+    res = client.post("/bottles/1/drink",
+                      json={"quantity": 1, "consumed_on": "2026-06-09", "rating": 93})
+    assert res.status_code == 200
+    assert logged[0][-1] == 93  # rating is the last positional arg
+
+
+def test_edit_log_entry_updates(client, monkeypatch):
+    captured = {}
+    def fake_update(entry_id, user_id, consumed_on, quantity, notes, rating):
+        captured.update(id=entry_id, user=user_id, rating=rating, notes=notes)
+        return True
+    monkeypatch.setattr(main, "update_log_entry", fake_update)
+    res = client.put("/log/7", json={"quantity": 1, "consumed_on": "2026-06-09",
+                                      "notes": "loved it", "rating": 95})
+    assert res.status_code == 200
+    assert captured == {"id": 7, "user": TEST_USER, "rating": 95.0, "notes": "loved it"}
+
+
+def test_edit_log_entry_404_when_not_owned(client, monkeypatch):
+    monkeypatch.setattr(main, "update_log_entry", lambda *a: False)
+    res = client.put("/log/7", json={"quantity": 1, "consumed_on": "2026-06-09"})
+    assert res.status_code == 404
+
+
+def test_edit_log_entry_rejects_bad_rating(client):
+    res = client.put("/log/7", json={"quantity": 1, "consumed_on": "2026-06-09", "rating": 150})
+    assert res.status_code == 422
+
+
+def test_delete_log_entry(client, monkeypatch):
+    monkeypatch.setattr(main, "delete_log_entry", lambda eid, uid: True)
+    assert client.delete("/log/7").status_code == 200
+    monkeypatch.setattr(main, "delete_log_entry", lambda eid, uid: False)
+    assert client.delete("/log/7").status_code == 404
+
+
 def test_ai_rate_limit_trips(client, monkeypatch):
     main._ai_calls.clear()
     monkeypatch.setattr(main, "get_bottle", lambda *a: None)  # 404s, but each call counts

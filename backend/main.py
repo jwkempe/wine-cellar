@@ -20,8 +20,9 @@ from ai import (
 )
 from auth import get_current_user
 from database import (
-    add_bottle, decrement_bottle, delete_bottle, get_bottle, get_bottles,
-    get_consumption_log, init_db, log_consumption, set_market_value, update_bottle,
+    add_bottle, decrement_bottle, delete_bottle, delete_log_entry, get_bottle,
+    get_bottles, get_consumption_log, init_db, log_consumption, set_market_value,
+    update_bottle, update_log_entry,
 )
 
 load_dotenv()
@@ -146,6 +147,14 @@ class DrinkEntry(BaseModel):
     quantity: int = Field(default=1, ge=1, le=10000)
     consumed_on: date
     notes: Optional[str] = Field(default=None, max_length=1000)
+    rating: Optional[float] = Field(default=None, ge=0, le=100)
+
+
+class LogEntryUpdate(BaseModel):
+    quantity: int = Field(default=1, ge=1, le=10000)
+    consumed_on: date
+    notes: Optional[str] = Field(default=None, max_length=1000)
+    rating: Optional[float] = Field(default=None, ge=0, le=100)
 
 
 class DrinkResult(BaseModel):
@@ -164,6 +173,7 @@ class LogEntryOut(BaseModel):
     quantity: Optional[int] = None
     consumed_on: Optional[date] = None
     notes: Optional[str] = None
+    rating: Optional[float] = None
 
 
 class StatusOut(BaseModel):
@@ -210,13 +220,25 @@ def drink_bottle(bottle_id: int, entry: DrinkEntry, user_id: str = Depends(get_c
     log_consumption(
         bottle_id, bottle["winery"], bottle["wine_name"], bottle["vintage"],
         bottle["varietal"], bottle["region"],
-        entry.quantity, entry.consumed_on, entry.notes, user_id,
+        entry.quantity, entry.consumed_on, entry.notes, user_id, entry.rating,
     )
     return {"status": "ok", "remaining": new_qty}
 
 @app.get("/log", response_model=list[LogEntryOut])
 def consumption_log(user_id: str = Depends(get_current_user)):
     return get_consumption_log(user_id)
+
+@app.put("/log/{entry_id}", response_model=StatusOut)
+def edit_log_entry(entry_id: int, e: LogEntryUpdate, user_id: str = Depends(get_current_user)):
+    if not update_log_entry(entry_id, user_id, e.consumed_on, e.quantity, e.notes, e.rating):
+        raise HTTPException(status_code=404, detail="Log entry not found")
+    return {"status": "ok"}
+
+@app.delete("/log/{entry_id}", response_model=StatusOut)
+def remove_log_entry(entry_id: int, user_id: str = Depends(get_current_user)):
+    if not delete_log_entry(entry_id, user_id):
+        raise HTTPException(status_code=404, detail="Log entry not found")
+    return {"status": "ok"}
 
 # ── AI ────────────────────────────────────────────────────────────────────────
 

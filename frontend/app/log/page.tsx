@@ -1,8 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getLog, LogEntry } from '@/lib/api'
 import PageHeader from '../components/PageHeader'
+import LogEntryEditor from '../components/LogEntryEditor'
 
 function formatDate(dateStr: string | null) {
   if (!dateStr) return '—'
@@ -15,6 +17,7 @@ export default function DrinkLog() {
     queryKey: ['log'],
     queryFn: getLog,
   })
+  const [editing, setEditing] = useState<LogEntry | null>(null)
 
   if (isLoading) return <p className="text-[#f0ead8]/40 text-sm">Loading your drink log...</p>
   if (isError) return <p className="text-red-400/70 text-sm">Could not load your drink log.</p>
@@ -30,7 +33,7 @@ export default function DrinkLog() {
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="border-b border-[#2e2a25]">
-                {['Date', 'Wine', 'Vintage', 'Varietal', 'Qty', 'Notes'].map(h => (
+                {['Date', 'Wine', 'Vintage', 'Varietal', 'Qty', 'Rating', 'Notes'].map(h => (
                   <th key={h} className="py-2 pr-6 text-left text-xs font-normal tracking-widest uppercase text-[#f0ead8]/30 whitespace-nowrap first:pl-4 lg:first:pl-0">
                     {h}
                   </th>
@@ -39,7 +42,11 @@ export default function DrinkLog() {
             </thead>
             <tbody>
               {log.map((entry: LogEntry) => (
-                <tr key={entry.id} className="border-b border-[#1a1714]">
+                <tr
+                  key={entry.id}
+                  onClick={() => setEditing(entry)}
+                  className="border-b border-[#1a1714] hover:bg-[#161412] cursor-pointer transition-colors"
+                >
                   <td className="py-3 pr-6 pl-4 lg:pl-0 text-[#f0ead8]/45 tabular-nums whitespace-nowrap">
                     {formatDate(entry.consumed_on)}
                   </td>
@@ -55,6 +62,9 @@ export default function DrinkLog() {
                   <td className="py-3 pr-6 text-[#f0ead8]/45 tabular-nums">
                     {entry.quantity}
                   </td>
+                  <td className="py-3 pr-6 text-[#f0ead8]/45 tabular-nums">
+                    {entry.rating ?? '—'}
+                  </td>
                   <td className="py-3 text-[#f0ead8]/40 text-xs max-w-xs truncate">
                     {entry.notes ?? '—'}
                   </td>
@@ -63,10 +73,12 @@ export default function DrinkLog() {
             </tbody>
           </table>
           <p className="text-xs text-[#f0ead8]/20 mt-4">
-            {log.length} entr{log.length !== 1 ? 'ies' : 'y'}
+            {log.length} entr{log.length !== 1 ? 'ies' : 'y'} · click a row to edit
           </p>
         </div>
       )}
+
+      {editing && <LogEntryEditor entry={editing} onClose={() => setEditing(null)} />}
     </div>
   )
 }
