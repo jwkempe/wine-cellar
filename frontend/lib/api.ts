@@ -37,12 +37,21 @@ export type LogEntry = {
   quantity: number
   consumed_on: string | null
   notes: string | null
+  rating: number | null
 }
 
 export type DrinkEntryInput = {
   quantity: number
   consumed_on: string
   notes?: string | null
+  rating?: number | null
+}
+
+export type LogEntryUpdateInput = {
+  quantity: number
+  consumed_on: string
+  notes?: string | null
+  rating?: number | null
 }
 
 export const getBottles = () => api.get<Bottle[]>('/bottles').then(r => r.data)
@@ -51,6 +60,8 @@ export const updateBottle = (id: number, b: BottleInput) => api.put(`/bottles/${
 export const deleteBottle = (id: number) => api.delete(`/bottles/${id}`)
 export const drinkBottle = (id: number, entry: DrinkEntryInput) => api.post(`/bottles/${id}/drink`, entry)
 export const getLog = () => api.get<LogEntry[]>('/log').then(r => r.data)
+export const updateLogEntry = (id: number, e: LogEntryUpdateInput) => api.put(`/log/${id}`, e)
+export const deleteLogEntry = (id: number) => api.delete(`/log/${id}`)
 export const lookupWine = (params: Record<string, string>) => api.get('/ai/lookup', { params }).then(r => r.data)
 
 export type ValueEstimate = { value: number | null; basis: string }

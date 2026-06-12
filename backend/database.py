@@ -133,6 +133,7 @@ def init_db() -> None:
         c.execute('ALTER TABLE bottles ADD COLUMN IF NOT EXISTS purchase_price REAL')
         c.execute('ALTER TABLE bottles ADD COLUMN IF NOT EXISTS market_value REAL')
         c.execute('ALTER TABLE bottles ADD COLUMN IF NOT EXISTS market_value_updated DATE')
+        c.execute('ALTER TABLE consumption_log ADD COLUMN IF NOT EXISTS rating REAL')
         # Indexes — every query filters by user_id, so index it on both tables.
         c.execute('CREATE INDEX IF NOT EXISTS idx_bottles_user_id ON bottles (user_id)')
         c.execute('CREATE INDEX IF NOT EXISTS idx_log_user_id ON consumption_log (user_id)')
@@ -229,15 +230,15 @@ def delete_bottle(id, user_id) -> None:
 
 
 def log_consumption(bottle_id, winery, wine_name, vintage, varietal, region,
-                    quantity, consumed_on, notes, user_id) -> None:
+                    quantity, consumed_on, notes, user_id, rating=None) -> None:
     with get_cursor(commit=True) as c:
         c.execute('''
             INSERT INTO consumption_log
                 (bottle_id, winery, wine_name, vintage, varietal, region,
-                 quantity, consumed_on, notes, user_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 quantity, consumed_on, notes, user_id, rating)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''', (bottle_id, winery, wine_name, vintage, varietal, region,
-              quantity, consumed_on, notes, user_id))
+              quantity, consumed_on, notes, user_id, rating))
 
 
 def get_consumption_log(user_id: str) -> list[dict[str, Any]]:
@@ -248,3 +249,25 @@ def get_consumption_log(user_id: str) -> list[dict[str, Any]]:
             (user_id,),
         )
         return [dict(row) for row in c.fetchall()]
+
+
+def update_log_entry(entry_id: int, user_id: str, consumed_on, quantity,
+                     notes, rating) -> bool:
+    """Update an editable drink-log entry; returns False if it isn't the user's."""
+    with get_cursor(commit=True) as c:
+        c.execute('''
+            UPDATE consumption_log
+            SET consumed_on=%s, quantity=%s, notes=%s, rating=%s
+            WHERE id=%s AND user_id=%s
+        ''', (consumed_on, quantity, notes, rating, entry_id, user_id))
+        return c.rowcount > 0
+
+
+def delete_log_entry(entry_id: int, user_id: str) -> bool:
+    """Delete a drink-log entry; returns False if it isn't the user's."""
+    with get_cursor(commit=True) as c:
+        c.execute(
+            "DELETE FROM consumption_log WHERE id=%s AND user_id=%s",
+            (entry_id, user_id),
+        )
+        return c.rowcount > 0

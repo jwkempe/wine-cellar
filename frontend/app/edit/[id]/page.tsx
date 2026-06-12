@@ -23,6 +23,8 @@ export default function EditBottle() {
   const [drinkQty, setDrinkQty] = useState(1)
   const [drinkDate, setDrinkDate] = useState(new Date().toISOString().slice(0, 10))
   const [drinkNotes, setDrinkNotes] = useState('')
+  const [drinkRated, setDrinkRated] = useState(false)
+  const [drinkRating, setDrinkRating] = useState(90)
   const [drinkSuccess, setDrinkSuccess] = useState(false)
 
   const updateMutation = useMutation({
@@ -42,7 +44,7 @@ export default function EditBottle() {
   })
 
   const drinkMutation = useMutation({
-    mutationFn: () => drinkBottle(id, { quantity: drinkQty, consumed_on: drinkDate, notes: drinkNotes || null }),
+    mutationFn: () => drinkBottle(id, { quantity: drinkQty, consumed_on: drinkDate, notes: drinkNotes || null, rating: drinkRated ? drinkRating : null }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bottles'] })
       queryClient.invalidateQueries({ queryKey: ['log'] })
@@ -72,6 +74,16 @@ export default function EditBottle() {
         <label className={labelClass}>Notes (optional)</label>
         <input className={inputClass} placeholder="e.g. Great with dinner" value={drinkNotes} onChange={e => setDrinkNotes(e.target.value)} />
       </div>
+      <div className="flex items-center gap-3 mb-4">
+        <input type="checkbox" id="drinkRated" checked={drinkRated} onChange={e => setDrinkRated(e.target.checked)} className="accent-[#c9a84c]" />
+        <label htmlFor="drinkRated" className="text-sm text-[#f0ead8]/50">Rate this drink</label>
+      </div>
+      {drinkRated && (
+        <div className="mb-4">
+          <label className={labelClass}>Rating (0–100)</label>
+          <input className={inputClass} type="number" min={0} max={100} step={0.5} value={drinkRating} onChange={e => setDrinkRating(parseFloat(e.target.value))} />
+        </div>
+      )}
       {drinkMutation.isError && (
         <p className="text-red-400/70 text-sm mb-3">Failed to log drink. Please try again.</p>
       )}
